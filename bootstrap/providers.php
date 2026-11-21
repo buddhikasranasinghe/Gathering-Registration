@@ -1,6 +1,8 @@
 <?php
 
-use App\Providers\AppServiceProvider;
+declare(strict_types=1);
+
+use App\Foundation\Providers\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
