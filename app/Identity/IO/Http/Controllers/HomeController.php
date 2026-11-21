@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Identity\IO\Http\Controllers;
 
 use App\Foundation\IO\Http\Controllers\Controller;
+use App\Foundation\Support\FunctionCountdown;
 use Illuminate\View\View;
 
 class HomeController extends Controller
@@ -14,6 +15,8 @@ class HomeController extends Controller
      */
     public function __invoke(): View
     {
-        return view('home');
+        return view('home', [
+            'countdown' => FunctionCountdown::fromConfig(),
+        ]);
     }
 }

@@ -1,4 +1,19 @@
 <x-layouts.app title="Home">
+    <div class="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50 p-6 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">Countdown</p>
+
+        @if ($countdown->hasPassed())
+            <p class="mt-1 text-lg font-medium text-indigo-900">The function has passed.</p>
+        @elseif ($countdown->isToday())
+            <p class="mt-1 text-lg font-medium text-indigo-900">The function is today.</p>
+        @else
+            <p class="mt-1 flex items-baseline gap-2">
+                <span class="text-4xl font-bold tabular-nums text-indigo-700">{{ $countdown->remainingDays() }}</span>
+                <span class="text-sm font-medium text-indigo-600">{{ $countdown->remainingDays() === 1 ? 'day to go' : 'days to go' }}</span>
+            </p>
+        @endif
+    </div>
+
     <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
