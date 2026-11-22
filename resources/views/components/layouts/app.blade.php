@@ -15,6 +15,12 @@
             </a>
 
             <div class="flex items-center gap-4 text-sm">
+                @if (auth()->user()->isSuperAdmin())
+                    <a href="{{ route('users.index') }}" class="font-medium text-slate-600 transition hover:text-slate-900">
+                        Users
+                    </a>
+                @endif
+
                 @if (auth()->user()->isAdministrator())
                     <a href="{{ route('participants.index') }}" class="font-medium text-slate-600 transition hover:text-slate-900">
                         Participants

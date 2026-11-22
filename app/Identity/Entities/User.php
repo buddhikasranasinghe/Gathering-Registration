@@ -56,4 +56,12 @@ class User extends Authenticatable
     {
         return $this->role === UserRole::SuperAdmin || $this->role === UserRole::Admin;
     }
+
+    /**
+     * Whether the account is the protected Super Admin account.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SuperAdmin;
+    }
 }
