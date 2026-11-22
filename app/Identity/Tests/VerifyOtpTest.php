@@ -19,6 +19,7 @@ use App\Identity\UseCases\Requests\LoginRequest;
 use App\Identity\UseCases\Requests\RegisterRequest;
 use App\Identity\UseCases\Requests\VerifyOtpRequest;
 use App\Identity\UseCases\VerifyOtpUseCase;
+use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithOtp;
@@ -48,6 +49,57 @@ final class VerifyOtpTest extends TestCase
         $user = $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
 
         $this->assertAccountCreatedFromRegistration($user);
+    }
+
+    #[Test]
+    public function when_a_registration_code_verifies_then_the_participant_record_is_created(): void
+    {
+        Mail::fake();
+        $this->startRegistration('Buddhika', 'buddhika@example.com');
+
+        $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
+
+        $this->assertParticipantWasRegistered('buddhika@example.com', 'Buddhika');
+    }
+
+    #[Test]
+    public function when_a_privileged_account_verifies_then_no_participant_is_created(): void
+    {
+        Mail::fake();
+        $superAdmin = User::factory()->superAdmin()->unverified()->create();
+        $this->startLogin($superAdmin->email);
+
+        $this->verifyCodeFor($superAdmin->email, $this->latestOtpCode());
+
+        $this->assertNoParticipantWasCreated();
+    }
+
+    #[Test]
+    public function when_a_registered_participant_signs_in_again_then_the_participant_is_not_duplicated(): void
+    {
+        Mail::fake();
+        $this->startRegistration('Buddhika', 'buddhika@example.com');
+        $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
+
+        $this->startLogin('buddhika@example.com');
+        $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
+
+        $this->assertSingleParticipantFor('buddhika@example.com', 'Buddhika');
+    }
+
+    #[Test]
+    public function when_a_participant_record_already_has_the_email_then_it_is_claimed(): void
+    {
+        Mail::fake();
+        $participant = Participant::factory()->create([
+            'name' => 'Imported Name',
+            'email' => 'buddhika@example.com',
+        ]);
+        $this->startRegistration('Buddhika', 'buddhika@example.com');
+
+        $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
+
+        $this->assertExistingParticipantWasClaimed($participant);
     }
 
     #[Test]
@@ -237,5 +289,35 @@ final class VerifyOtpTest extends TestCase
     {
         $this->assertDatabaseMissing('users', ['email' => $email]);
         $this->assertNotNull(OneTimePasscode::latestFor($email)->consumed_at);
+    }
+
+    private function assertParticipantWasRegistered(string $email, string $name): void
+    {
+        $participant = Participant::query()->where('email', $email)->sole();
+
+        $this->assertSame($name, $participant->name);
+        $this->assertNull($participant->import_key);
+    }
+
+    private function assertNoParticipantWasCreated(): void
+    {
+        $this->assertSame(0, Participant::query()->count());
+    }
+
+    private function assertSingleParticipantFor(string $email, string $name): void
+    {
+        $participants = Participant::query()->where('email', $email)->get();
+
+        $this->assertCount(1, $participants);
+        $this->assertSame($name, $participants->first()->name);
+    }
+
+    private function assertExistingParticipantWasClaimed(Participant $participant): void
+    {
+        $participant->refresh();
+
+        $this->assertSame(1, Participant::query()->count());
+        $this->assertSame('Imported Name', $participant->name);
+        $this->assertSame('buddhika@example.com', $participant->email);
     }
 }

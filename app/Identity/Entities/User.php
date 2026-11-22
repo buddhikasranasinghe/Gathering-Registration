@@ -48,4 +48,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(OneTimePasscode::class, 'email', 'email');
     }
+
+    /**
+     * Whether the account can manage gathering participants.
+     */
+    public function isAdministrator(): bool
+    {
+        return $this->role === UserRole::SuperAdmin || $this->role === UserRole::Admin;
+    }
 }

@@ -12,6 +12,7 @@ use App\Identity\Exceptions\OtpAttemptsExceededException;
 use App\Identity\Exceptions\OtpExpiredException;
 use App\Identity\Exceptions\OtpInvalidException;
 use App\Identity\UseCases\Requests\VerifyOtpRequest;
+use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -32,6 +33,7 @@ final class VerifyOtpUseCase
 
             if ($user !== null) {
                 $this->markEmailVerified($user);
+                $this->ensureParticipantExists($user);
             }
 
             return $user;
@@ -167,6 +169,22 @@ final class VerifyOtpUseCase
         if ($user->email_verified_at === null) {
             $user->forceFill(['email_verified_at' => now()])->save();
         }
+    }
+
+    /**
+     * Every verified participant account appears in the participant roster.
+     * Privileged accounts are administrators, not participants.
+     */
+    private function ensureParticipantExists(User $user): void
+    {
+        if ($user->role !== UserRole::User) {
+            return;
+        }
+
+        Participant::query()->firstOrCreate(
+            ['email' => $user->email],
+            ['name' => $user->name],
+        );
     }
 
     private function maxAttempts(): int

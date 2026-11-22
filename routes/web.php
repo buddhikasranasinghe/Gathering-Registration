@@ -7,6 +7,9 @@ use App\Identity\IO\Http\Controllers\Auth\LogoutController;
 use App\Identity\IO\Http\Controllers\Auth\OtpVerificationController;
 use App\Identity\IO\Http\Controllers\Auth\RegistrationController;
 use App\Identity\IO\Http\Controllers\HomeController;
+use App\Participation\IO\Http\Controllers\ParticipantArchiveController;
+use App\Participation\IO\Http\Controllers\ParticipantController;
+use App\Participation\IO\Http\Controllers\ParticipantImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/home');
@@ -34,4 +37,15 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/home', HomeController::class)->name('home');
     Route::post('/logout', LogoutController::class)->name('logout');
+});
+
+Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
+    Route::get('/participants', ParticipantController::class)->name('participants.index');
+    Route::post('/participants/{participant}/archive', [ParticipantArchiveController::class, 'store'])
+        ->name('participants.archive');
+});
+
+Route::middleware(['auth', 'role:super_admin'])->group(function () {
+    Route::post('/participants/import', [ParticipantImportController::class, 'store'])
+        ->name('participants.import');
 });

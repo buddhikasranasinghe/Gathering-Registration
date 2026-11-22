@@ -15,6 +15,12 @@
             </a>
 
             <div class="flex items-center gap-4 text-sm">
+                @if (auth()->user()->isAdministrator())
+                    <a href="{{ route('participants.index') }}" class="font-medium text-slate-600 transition hover:text-slate-900">
+                        Participants
+                    </a>
+                @endif
+
                 <span class="hidden text-slate-500 sm:inline">{{ auth()->user()->name }}</span>
                 <x-ui.role-badge :role="auth()->user()->role" />
                 <form method="POST" action="{{ route('logout') }}">

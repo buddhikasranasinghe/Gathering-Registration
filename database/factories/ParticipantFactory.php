@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Factories;
+
+use App\Identity\Entities\User;
+use App\Participation\Entities\Participant;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory<Participant>
+ */
+class ParticipantFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => null,
+            'call_name' => null,
+            'batch' => null,
+            'batch_number' => null,
+            'phone' => null,
+            'nic' => null,
+            'spouse_attending' => null,
+            'spouse_name' => null,
+            'import_key' => null,
+            'last_imported_at' => null,
+            'archived_at' => null,
+            'archive_note' => null,
+            'archived_by' => null,
+        ];
+    }
+
+    /**
+     * Indicate that the participant was imported from a spreadsheet.
+     */
+    public function imported(): static
+    {
+        return $this->state(fn (): array => [
+            'batch' => '37 (2013 - 2014)',
+            'batch_number' => 37,
+            'phone' => '0773370555',
+            'nic' => '933040186V',
+            'import_key' => 'nic:933040186V',
+            'last_imported_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that the participant signed up in the application.
+     */
+    public function registered(): static
+    {
+        return $this->state(fn (): array => [
+            'email' => fake()->unique()->safeEmail(),
+            'import_key' => null,
+        ]);
+    }
+
+    /**
+     * Indicate that the participant was archived by an administrator.
+     */
+    public function archived(): static
+    {
+        return $this->state(fn (): array => [
+            'archived_at' => now(),
+            'archive_note' => 'Duplicate submission.',
+            'archived_by' => User::factory(),
+        ]);
+    }
+}
