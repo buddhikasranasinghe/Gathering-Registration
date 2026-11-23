@@ -117,6 +117,80 @@ final class UserRoleManagementTest extends TestCase
     }
 
     #[Test]
+    public function when_a_role_filter_is_applied_then_only_matching_users_are_listed(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        User::factory()->create(['name' => 'Alice User']);
+        User::factory()->admin()->create(['name' => 'Bob Admin']);
+
+        $response = $this->actingAs($superAdmin)->get(route('users.index', ['role' => UserRole::Admin->value]));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'users',
+            fn ($users): bool => $users->total() === 1
+                && $users->first()->name === 'Bob Admin',
+        );
+    }
+
+    #[Test]
+    public function when_a_batch_filter_is_applied_then_only_users_in_that_batch_are_listed(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $batch = Batch::factory()->create(['name' => 'Batch A']);
+        User::factory()->admin()->create(['name' => 'Batch Member', 'batch_id' => $batch->id]);
+        User::factory()->create(['name' => 'Other Member']);
+
+        $response = $this->actingAs($superAdmin)->get(route('users.index', ['batch_id' => $batch->id]));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'users',
+            fn ($users): bool => $users->total() === 1
+                && $users->first()->name === 'Batch Member',
+        );
+    }
+
+    #[Test]
+    public function when_combined_filters_are_applied_then_only_matching_users_are_listed(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $batch = Batch::factory()->create(['name' => 'Batch A']);
+        User::factory()->admin()->create(['name' => 'Admin In Batch', 'batch_id' => $batch->id]);
+        User::factory()->admin()->create(['name' => 'Admin Elsewhere']);
+        User::factory()->create(['name' => 'User In Batch', 'batch_id' => $batch->id]);
+
+        $response = $this->actingAs($superAdmin)->get(route('users.index', [
+            'role' => UserRole::Admin->value,
+            'batch_id' => $batch->id,
+            'search' => 'Admin',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'users',
+            fn ($users): bool => $users->total() === 1
+                && $users->first()->name === 'Admin In Batch',
+        );
+    }
+
+    #[Test]
+    public function when_an_invalid_role_filter_is_applied_then_all_users_are_listed(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        User::factory()->create(['name' => 'Alice User']);
+        User::factory()->create(['name' => 'Bob User']);
+
+        $response = $this->actingAs($superAdmin)->get(route('users.index', ['role' => 'not-a-role']));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'users',
+            fn ($users): bool => $users->total() === 3,
+        );
+    }
+
+    #[Test]
     public function when_the_users_search_is_applied_then_only_matching_users_are_listed(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
@@ -202,7 +276,6 @@ final class UserRoleManagementTest extends TestCase
         $response->assertSee($user->name);
         $response->assertSee('Protected');
         $response->assertSee('40');
-        $response->assertSee('Update role');
     }
 
     private function assertUsersPageIsFiltered(TestResponse $response): void

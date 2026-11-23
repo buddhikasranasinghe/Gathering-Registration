@@ -15,25 +15,48 @@
     <x-ui.alerts />
 
     <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <form method="GET" action="{{ route('users.index') }}" class="flex flex-wrap items-end gap-3 border-b border-slate-100 p-4">
+        <form id="filters-form" method="GET" action="{{ route('users.index') }}" class="flex flex-wrap items-end gap-3 border-b border-slate-100 p-4">
             <div class="min-w-48 flex-1">
                 <label for="search" class="block text-xs font-medium uppercase tracking-wide text-slate-500">Search</label>
                 <input
                     id="search"
                     name="search"
                     type="search"
-                    value="{{ $search }}"
+                    value="{{ $filters['search'] }}"
                     placeholder="Name or email"
                     class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                 >
             </div>
 
-            <button
-                type="submit"
-                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200"
-            >
-                Search
-            </button>
+            <div>
+                <label for="role" class="block text-xs font-medium uppercase tracking-wide text-slate-500">Role</label>
+                <select
+                    id="role"
+                    name="role"
+                    class="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                >
+                    <option value="">All roles</option>
+                    @foreach ($roles as $role)
+                        <option value="{{ $role->value }}" @selected($filters['role']?->value === $role->value)>
+                            {{ $role->label() }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="batch" class="block text-xs font-medium uppercase tracking-wide text-slate-500">Batch</label>
+                <select
+                    id="batch"
+                    name="batch_id"
+                    class="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                >
+                    <option value="">All batches</option>
+                    @foreach ($batches as $batch)
+                        <option value="{{ $batch->id }}" @selected($filters['batchId'] === $batch->id)>{{ $batch->name }}</option>
+                    @endforeach
+                </select>
+            </div>
 
             <a href="{{ route('users.index') }}" class="pb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
                 Reset
@@ -79,18 +102,12 @@
                                         <select
                                             id="role-{{ $user->id }}"
                                             name="role"
+                                            onchange="this.form.submit()"
                                             class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                                         >
                                             <option value="user" @selected($user->role === \App\Identity\Entities\UserRole::User)>User</option>
                                             <option value="admin" @selected($user->role === \App\Identity\Entities\UserRole::Admin)>Admin</option>
                                         </select>
-
-                                        <button
-                                            type="submit"
-                                            class="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-200"
-                                        >
-                                            Update role
-                                        </button>
                                     </form>
                                 @endif
                             </td>
@@ -112,4 +129,25 @@
             </div>
         @endif
     </section>
+    <script>
+        (function () {
+            const form = document.getElementById('filters-form');
+            if (!form) return;
+
+            let timer = null;
+            const submit = () => form.submit();
+
+            form.querySelectorAll('select, input[type="checkbox"]').forEach((el) => {
+                el.addEventListener('change', submit);
+            });
+
+            const search = form.querySelector('input[name="search"]');
+            if (search) {
+                search.addEventListener('input', () => {
+                    clearTimeout(timer);
+                    timer = setTimeout(submit, 400);
+                });
+            }
+        })();
+    </script>
 </x-layouts.app>

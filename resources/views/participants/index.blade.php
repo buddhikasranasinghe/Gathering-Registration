@@ -141,6 +141,7 @@
 
     <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <form
+            id="filters-form"
             method="GET"
             action="{{ route('participants.index') }}"
             class="flex flex-wrap items-end gap-3 border-b border-slate-100 p-4"
@@ -177,13 +178,6 @@
                 <input type="checkbox" name="archived" value="1" @checked($filters['archived'])>
                 Archived only
             </label>
-
-            <button
-                type="submit"
-                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200"
-            >
-                Filter
-            </button>
 
             <a href="{{ route('participants.index') }}" class="pb-2 text-sm font-medium text-slate-500 hover:text-slate-700">
                 Reset
@@ -312,4 +306,25 @@
             </div>
         @endif
     </section>
+    <script>
+        (function () {
+            const form = document.getElementById('filters-form');
+            if (!form) return;
+
+            let timer = null;
+            const submit = () => form.submit();
+
+            form.querySelectorAll('select, input[type="checkbox"]').forEach((el) => {
+                el.addEventListener('change', submit);
+            });
+
+            const search = form.querySelector('input[name="search"]');
+            if (search) {
+                search.addEventListener('input', () => {
+                    clearTimeout(timer);
+                    timer = setTimeout(submit, 400);
+                });
+            }
+        })();
+    </script>
 </x-layouts.app>
