@@ -33,7 +33,6 @@ final class VerifyOtpUseCase
 
             if ($user !== null) {
                 $this->markEmailVerified($user);
-                $this->ensureParticipantExists($user);
             }
 
             return $user;
@@ -147,7 +146,13 @@ final class VerifyOtpUseCase
             return null;
         }
 
-        return $this->createUser($request->email, $passcode->pending_name);
+        $participant = Participant::query()->where('email', $request->email)->first();
+
+        if ($participant === null) {
+            return null;
+        }
+
+        return $this->createUser($request->email, $participant);
     }
 
     private function findUser(string $email): ?User
@@ -155,12 +160,13 @@ final class VerifyOtpUseCase
         return User::query()->where('email', $email)->first();
     }
 
-    private function createUser(string $email, string $name): User
+    private function createUser(string $email, Participant $participant): User
     {
         return User::query()->create([
-            'name' => $name,
+            'name' => $participant->name,
             'email' => $email,
             'role' => UserRole::User,
+            'batch_id' => $participant->batch_id,
         ]);
     }
 
@@ -169,22 +175,6 @@ final class VerifyOtpUseCase
         if ($user->email_verified_at === null) {
             $user->forceFill(['email_verified_at' => now()])->save();
         }
-    }
-
-    /**
-     * Every verified participant account appears in the participant roster.
-     * Privileged accounts are administrators, not participants.
-     */
-    private function ensureParticipantExists(User $user): void
-    {
-        if ($user->role !== UserRole::User) {
-            return;
-        }
-
-        Participant::query()->firstOrCreate(
-            ['email' => $user->email],
-            ['name' => $user->name],
-        );
     }
 
     private function maxAttempts(): int

@@ -11,6 +11,7 @@ use App\Identity\UseCases\RegisterUseCase;
 use App\Identity\UseCases\Requests\RegisterRequest;
 use App\Identity\UseCases\Requests\ResendOtpRequest;
 use App\Identity\UseCases\ResendOtpUseCase;
+use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -20,6 +21,7 @@ final class ResendOtpTest extends TestCase
     public function when_a_registration_is_pending_then_resending_keeps_the_name_and_updates_the_ip(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
         app(RegisterUseCase::class)->handle(
             new RegisterRequest('Buddhika', 'buddhika@example.com'),
         );
@@ -34,6 +36,7 @@ final class ResendOtpTest extends TestCase
     public function when_a_code_was_recently_requested_then_resending_is_rejected(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
         app(RegisterUseCase::class)->handle(
             new RegisterRequest('Buddhika', 'buddhika@example.com'),
         );
@@ -59,6 +62,11 @@ final class ResendOtpTest extends TestCase
     private function resendCodeFor(string $email, ?string $ipAddress = null): void
     {
         app(ResendOtpUseCase::class)->handle(new ResendOtpRequest($email, $ipAddress));
+    }
+
+    private function participantFor(string $email): void
+    {
+        Participant::factory()->create(['email' => $email]);
     }
 
     private function assertResentPasscodeKeptThePendingDetails(string $email, string $name): void

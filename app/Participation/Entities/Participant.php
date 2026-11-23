@@ -16,8 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'name',
     'email',
     'call_name',
-    'batch',
-    'batch_number',
+    'batch_id',
     'phone',
     'nic',
     'spouse_attending',
@@ -42,7 +41,6 @@ class Participant extends Model
     protected function casts(): array
     {
         return [
-            'batch_number' => 'integer',
             'spouse_attending' => 'boolean',
             'last_imported_at' => 'datetime',
             'archived_at' => 'datetime',
@@ -57,6 +55,16 @@ class Participant extends Model
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by');
+    }
+
+    /**
+     * The participant's batch.
+     *
+     * @return BelongsTo<Batch, $this>
+     */
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(Batch::class);
     }
 
     public function isArchived(): bool

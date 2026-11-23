@@ -6,6 +6,8 @@ namespace App\Participation\Tests;
 
 use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
+use App\Identity\Entities\UserRole;
+use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,6 +32,45 @@ final class ParticipantsPageTest extends TestCase
             ->get(route('participants.index'));
 
         $this->assertImportIsHiddenFromAdmin($response);
+    }
+
+    #[Test]
+    public function when_an_admin_views_the_page_then_only_participants_from_its_batch_and_statistics_are_shown(): void
+    {
+        $batch = Batch::factory()->create();
+        $admin = User::factory()->admin()->create(['batch_id' => $batch->id]);
+        $member = Participant::factory()->for($batch)->create(['name' => 'Batch Member']);
+        Participant::factory()->create(['name' => 'Other Batch Member']);
+
+        $response = $this->actingAs($admin)->get(route('participants.index', ['batch_id' => 999999]));
+
+        $response->assertOk();
+        $response->assertSee($member->name);
+        $response->assertDontSee('Other Batch Member');
+        $response->assertViewHas('stats', ['active' => 1, 'spouses' => 0, 'archived' => 0]);
+    }
+
+    #[Test]
+    public function when_an_admin_has_no_batch_then_the_roster_is_empty_and_the_reason_is_shown(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        Participant::factory()->create(['name' => 'Hidden Roster Member']);
+
+        $response = $this->actingAs($admin)->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertSee('No batch is assigned to your account. Contact the Super Admin.');
+        $response->assertDontSee('Hidden Roster Member');
+    }
+
+    #[Test]
+    public function when_an_admin_views_the_page_then_archive_controls_are_hidden(): void
+    {
+        $response = $this->actingAs(User::factory()->admin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('Archive participant');
     }
 
     #[Test]
@@ -73,6 +114,19 @@ final class ParticipantsPageTest extends TestCase
         $this->assertArchivedRosterIsShown($response);
     }
 
+    #[Test]
+    public function when_the_batch_filter_is_applied_then_only_participants_in_that_batch_are_listed(): void
+    {
+        $batch = Batch::factory()->create(['name' => 'Batch Thirty Seven']);
+        Participant::factory()->for($batch)->create(['name' => 'Batch Member']);
+        Participant::factory()->create(['name' => 'Different Batch Member']);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['batch_id' => $batch->id]));
+
+        $this->assertBatchRosterIsShown($response);
+    }
+
     private function assertRosterShownToSuperAdmin(TestResponse $response, Participant $participant): void
     {
         $response->assertOk();
@@ -85,6 +139,7 @@ final class ParticipantsPageTest extends TestCase
     {
         $response->assertOk();
         $response->assertDontSee('Import spreadsheet');
+        $response->assertDontSee('Spreadsheet import');
         $response->assertViewHas('canImport', false);
     }
 
@@ -106,6 +161,16 @@ final class ParticipantsPageTest extends TestCase
             fn ($participants): bool => $participants->total() === 1
                 && $participants->first()->name === 'Archived Person'
                 && $participants->first()->isArchived(),
+        );
+    }
+
+    private function assertBatchRosterIsShown(TestResponse $response): void
+    {
+        $response->assertOk();
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->first()->name === 'Batch Member',
         );
     }
 }

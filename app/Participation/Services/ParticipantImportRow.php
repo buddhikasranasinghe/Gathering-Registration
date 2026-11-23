@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Participation\Services;
 
+use App\Participation\Entities\Batch;
 use Illuminate\Support\Str;
 
 final class ParticipantImportRow
@@ -12,8 +13,7 @@ final class ParticipantImportRow
      * @param  array{
      *     name: string,
      *     call_name: ?string,
-     *     batch: ?string,
-     *     batch_number: ?int,
+     *     batch_mapper_name: ?string,
      *     phone: ?string,
      *     nic: ?string,
      *     spouse_attending: ?bool,
@@ -47,8 +47,7 @@ final class ParticipantImportRow
         return new self($rowNumber, [
             'name' => $name,
             'call_name' => self::text($cells[2]),
-            'batch' => self::text($cells[3]),
-            'batch_number' => self::batchNumber($cells[3]),
+            'batch_mapper_name' => self::batchMapperName($cells[3]),
             'phone' => $phone,
             'nic' => $nic,
             'spouse_attending' => self::yesNo($cells[5]),
@@ -66,8 +65,7 @@ final class ParticipantImportRow
      * @return array{
      *     name: string,
      *     call_name: ?string,
-     *     batch: ?string,
-     *     batch_number: ?int,
+     *     batch_mapper_name: ?string,
      *     phone: ?string,
      *     nic: ?string,
      *     spouse_attending: ?bool,
@@ -87,13 +85,11 @@ final class ParticipantImportRow
         return $value === '' ? null : $value;
     }
 
-    private static function batchNumber(string $value): ?int
+    private static function batchMapperName(string $value): ?string
     {
-        if (preg_match('/^\s*(\d{1,2})\b/', $value, $matches) !== 1) {
-            return null;
-        }
+        $value = self::text($value);
 
-        return (int) $matches[1];
+        return $value === null ? null : Batch::normalizeExcelMapperName($value);
     }
 
     private static function yesNo(string $value): ?bool

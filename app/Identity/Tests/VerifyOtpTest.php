@@ -19,6 +19,7 @@ use App\Identity\UseCases\Requests\LoginRequest;
 use App\Identity\UseCases\Requests\RegisterRequest;
 use App\Identity\UseCases\Requests\VerifyOtpRequest;
 use App\Identity\UseCases\VerifyOtpUseCase;
+use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
@@ -44,22 +45,41 @@ final class VerifyOtpTest extends TestCase
     public function when_a_registration_code_verifies_then_the_account_is_created_with_the_pending_name(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com', 'Imported Name');
         $this->startRegistration('Buddhika', 'buddhika@example.com');
 
         $user = $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
 
-        $this->assertAccountCreatedFromRegistration($user);
+        $this->assertAccountCreatedFromParticipant($user);
     }
 
     #[Test]
-    public function when_a_registration_code_verifies_then_the_participant_record_is_created(): void
+    public function when_a_registration_code_verifies_then_the_existing_participant_record_is_reused(): void
     {
         Mail::fake();
+        $participant = $this->participantFor('buddhika@example.com', 'Buddhika');
         $this->startRegistration('Buddhika', 'buddhika@example.com');
 
         $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
 
-        $this->assertParticipantWasRegistered('buddhika@example.com', 'Buddhika');
+        $this->assertParticipantWasReused($participant);
+    }
+
+    #[Test]
+    public function when_a_registration_code_verifies_then_the_participant_batch_is_copied_to_the_account(): void
+    {
+        Mail::fake();
+        $batch = Batch::factory()->create();
+        Participant::factory()->create([
+            'email' => 'buddhika@example.com',
+            'name' => 'Buddhika',
+            'batch_id' => $batch->id,
+        ]);
+        $this->startRegistration('Buddhika', 'buddhika@example.com');
+
+        $user = $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
+
+        $this->assertSame($batch->id, $user->batch_id);
     }
 
     #[Test]
@@ -78,6 +98,7 @@ final class VerifyOtpTest extends TestCase
     public function when_a_registered_participant_signs_in_again_then_the_participant_is_not_duplicated(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com', 'Buddhika');
         $this->startRegistration('Buddhika', 'buddhika@example.com');
         $this->verifyCodeFor('buddhika@example.com', $this->latestOtpCode());
 
@@ -211,6 +232,14 @@ final class VerifyOtpTest extends TestCase
         app(RegisterUseCase::class)->handle(new RegisterRequest($name, $email));
     }
 
+    private function participantFor(string $email, string $name): Participant
+    {
+        return Participant::factory()->create([
+            'name' => $name,
+            'email' => $email,
+        ]);
+    }
+
     private function verifyCodeFor(string $email, string $code): User
     {
         return $this->verifyCode(new VerifyOtpRequest($email, $code));
@@ -250,9 +279,9 @@ final class VerifyOtpTest extends TestCase
         $this->assertNotNull($account->oneTimePasscodes()->sole()->consumed_at);
     }
 
-    private function assertAccountCreatedFromRegistration(User $user): void
+    private function assertAccountCreatedFromParticipant(User $user): void
     {
-        $this->assertSame('Buddhika', $user->name);
+        $this->assertSame('Imported Name', $user->name);
         $this->assertSame('buddhika@example.com', $user->email);
         $this->assertSame(UserRole::User, $user->role);
         $this->assertNotNull($user->email_verified_at);
@@ -291,12 +320,10 @@ final class VerifyOtpTest extends TestCase
         $this->assertNotNull(OneTimePasscode::latestFor($email)->consumed_at);
     }
 
-    private function assertParticipantWasRegistered(string $email, string $name): void
+    private function assertParticipantWasReused(Participant $participant): void
     {
-        $participant = Participant::query()->where('email', $email)->sole();
-
-        $this->assertSame($name, $participant->name);
-        $this->assertNull($participant->import_key);
+        $this->assertSame(1, Participant::query()->count());
+        $this->assertSame('Buddhika', $participant->refresh()->name);
     }
 
     private function assertNoParticipantWasCreated(): void

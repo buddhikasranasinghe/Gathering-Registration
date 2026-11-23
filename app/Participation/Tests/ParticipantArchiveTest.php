@@ -8,16 +8,14 @@ use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Participant;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 final class ParticipantArchiveTest extends TestCase
 {
-    #[DataProvider('administratorRoles')]
     #[Test]
-    public function when_an_administrator_archives_a_participant_then_the_note_and_actor_are_recorded(UserRole $role): void
+    public function when_a_super_admin_archives_a_participant_then_the_note_and_actor_are_recorded(): void
     {
-        $user = $this->userWithRole($role);
+        $user = $this->userWithRole(UserRole::SuperAdmin);
         $participant = Participant::factory()->create();
 
         $response = $this->actingAs($user)->post(
@@ -29,11 +27,24 @@ final class ParticipantArchiveTest extends TestCase
     }
 
     #[Test]
-    public function when_the_note_is_missing_then_the_participant_is_not_archived(): void
+    public function when_an_admin_archives_a_participant_then_the_request_is_forbidden(): void
     {
         $participant = Participant::factory()->create();
 
         $response = $this->actingAs($this->userWithRole(UserRole::Admin))->post(
+            route('participants.archive', $participant),
+            ['note' => 'Duplicate submission.'],
+        );
+
+        $this->assertArchiveWasForbidden($response, $participant);
+    }
+
+    #[Test]
+    public function when_the_note_is_missing_then_the_participant_is_not_archived(): void
+    {
+        $participant = Participant::factory()->create();
+
+        $response = $this->actingAs($this->userWithRole(UserRole::SuperAdmin))->post(
             route('participants.archive', $participant),
             ['note' => ''],
         );
@@ -46,7 +57,7 @@ final class ParticipantArchiveTest extends TestCase
     {
         $participant = Participant::factory()->create();
 
-        $response = $this->actingAs($this->userWithRole(UserRole::Admin))->post(
+        $response = $this->actingAs($this->userWithRole(UserRole::SuperAdmin))->post(
             route('participants.archive', $participant),
             ['note' => 'no'],
         );
@@ -77,17 +88,6 @@ final class ParticipantArchiveTest extends TestCase
         ]);
 
         $response->assertRedirect(route('login'));
-    }
-
-    /**
-     * @return array<string, array{UserRole}>
-     */
-    public static function administratorRoles(): array
-    {
-        return [
-            'super admin' => [UserRole::SuperAdmin],
-            'admin' => [UserRole::Admin],
-        ];
     }
 
     private function userWithRole(UserRole $role): User

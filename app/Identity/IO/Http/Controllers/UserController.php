@@ -27,7 +27,7 @@ class UserController extends Controller
      */
     private function users(string $search): LengthAwarePaginator
     {
-        $query = User::query();
+        $query = User::query()->with('batch:id,name');
 
         if ($search !== '') {
             $searchTerm = '%'.$search.'%';

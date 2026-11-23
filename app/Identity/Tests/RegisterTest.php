@@ -8,9 +8,11 @@ use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Identity\Exceptions\AccountAlreadyExistsException;
 use App\Identity\Exceptions\OtpCooldownException;
+use App\Identity\Exceptions\ParticipantNotFoundException;
 use App\Identity\IO\Mail\OneTimePasscodeMail;
 use App\Identity\UseCases\RegisterUseCase;
 use App\Identity\UseCases\Requests\RegisterRequest;
+use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -20,10 +22,21 @@ final class RegisterTest extends TestCase
     public function when_a_new_person_registers_then_a_code_is_emailed_and_the_name_is_held(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
 
         $this->startRegistration('Buddhika', 'buddhika@example.com');
 
         $this->assertPendingRegistrationCreatedFor('buddhika@example.com', 'Buddhika');
+    }
+
+    #[Test]
+    public function when_a_person_is_not_on_the_participant_list_then_registration_is_rejected(): void
+    {
+        Mail::fake();
+
+        $this->expectException(ParticipantNotFoundException::class);
+
+        $this->startRegistration('Buddhika', 'buddhika@example.com');
     }
 
     #[Test]
@@ -44,6 +57,7 @@ final class RegisterTest extends TestCase
     public function when_a_code_was_recently_requested_then_registration_is_rejected(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
 
         $this->startRegistration('Buddhika', 'buddhika@example.com');
 
@@ -59,6 +73,7 @@ final class RegisterTest extends TestCase
     public function when_the_cooldown_has_ended_then_registration_sends_another_code(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
 
         $this->startRegistration('Buddhika', 'buddhika@example.com');
         $this->travel(61)->seconds();
@@ -70,6 +85,11 @@ final class RegisterTest extends TestCase
     private function startRegistration(string $name, string $email): void
     {
         app(RegisterUseCase::class)->handle(new RegisterRequest($name, $email, '127.0.0.1'));
+    }
+
+    private function participantFor(string $email): Participant
+    {
+        return Participant::factory()->create(['email' => $email]);
     }
 
     private function assertPendingRegistrationCreatedFor(string $email, string $name): void

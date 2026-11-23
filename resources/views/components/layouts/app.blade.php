@@ -19,6 +19,9 @@
                     <a href="{{ route('users.index') }}" class="font-medium text-slate-600 transition hover:text-slate-900">
                         Users
                     </a>
+                    <a href="{{ route('batches.index') }}" class="font-medium text-slate-600 transition hover:text-slate-900">
+                        Batches
+                    </a>
                 @endif
 
                 @if (auth()->user()->isAdministrator())

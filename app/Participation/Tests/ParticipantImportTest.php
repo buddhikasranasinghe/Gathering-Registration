@@ -7,6 +7,7 @@ namespace App\Participation\Tests;
 use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
+use App\Participation\Entities\Batch;
 use App\Participation\Entities\ImportStatus;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantImportRun;
@@ -22,13 +23,14 @@ final class ParticipantImportTest extends TestCase
     public function when_a_super_admin_uploads_a_csv_then_participants_are_imported_immediately(): void
     {
         $user = User::factory()->superAdmin()->create();
+        $batch = $this->batchForImport();
 
         $response = $this->actingAs($user)->post(
             route('participants.import'),
             ['file' => $this->csvUpload()],
         );
 
-        $this->assertCsvWasImported($response, $user);
+        $this->assertCsvWasImported($response, $user, $batch);
     }
 
     #[Test]
@@ -45,6 +47,7 @@ final class ParticipantImportTest extends TestCase
     #[Test]
     public function when_an_imported_row_matches_an_archived_participant_then_the_participant_is_not_changed(): void
     {
+        $this->batchForImport();
         $participant = Participant::factory()->imported()->archived()->create(['name' => 'Archived Name']);
 
         $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
@@ -58,6 +61,7 @@ final class ParticipantImportTest extends TestCase
     #[Test]
     public function when_an_imported_row_matches_a_self_registered_participant_then_a_new_imported_participant_is_created(): void
     {
+        $this->batchForImport();
         Participant::factory()->registered()->create(['phone' => '0773370555']);
 
         $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
@@ -69,6 +73,26 @@ final class ParticipantImportTest extends TestCase
     }
 
     #[Test]
+    public function when_an_imported_participant_has_a_user_account_then_the_user_batch_is_synced(): void
+    {
+        $batch = $this->batchForImport();
+        $user = User::factory()->for(Batch::factory())->create(['email' => 'chathuranga@example.com']);
+        Participant::factory()->imported()->create([
+            'email' => $user->email,
+            'phone' => '0773370555',
+            'nic' => '933040186V',
+        ]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
+            route('participants.import'),
+            ['file' => $this->csvUpload()],
+        );
+
+        $response->assertRedirect();
+        $this->assertSame($batch->getKey(), $user->refresh()->batch_id);
+    }
+
+    #[Test]
     public function when_the_uploaded_file_has_an_invalid_extension_then_it_is_rejected(): void
     {
         $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
@@ -77,6 +101,17 @@ final class ParticipantImportTest extends TestCase
         );
 
         $response->assertSessionHasErrors('file');
+    }
+
+    #[Test]
+    public function when_an_imported_row_has_an_unknown_batch_mapper_then_the_row_is_skipped(): void
+    {
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
+            route('participants.import'),
+            ['file' => $this->csvUpload()],
+        );
+
+        $this->assertUnknownBatchRowWasSkipped($response);
     }
 
     #[DataProvider('nonSuperAdminRoles')]
@@ -118,7 +153,7 @@ final class ParticipantImportTest extends TestCase
     {
         return UploadedFile::fake()->createWithContent('participants.csv', implode("\n", [
             'Timestamp,Name,Call name,Batch,Phone,Spouse attending,,,,NIC,Spouse name,',
-            ',Chathuranga Ranasingh,Cos,"37 (2013 - 2014)",0773370555,Yes,,,,933040186V,R.M.T Sooryamali,',
+            ',Chathuranga Ranasingh,Cos,"  EXCEL BATCH 37  ",0773370555,Yes,,,,933040186V,R.M.T Sooryamali,',
         ]));
     }
 
@@ -136,7 +171,15 @@ final class ParticipantImportTest extends TestCase
         return new UploadedFile($path, 'participants.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
 
-    private function assertCsvWasImported($response, User $user): void
+    private function batchForImport(): Batch
+    {
+        return Batch::factory()->create([
+            'name' => 'Batch Thirty Seven',
+            'excel_mapper_name' => 'excel batch 37',
+        ]);
+    }
+
+    private function assertCsvWasImported($response, User $user, Batch $batch): void
     {
         $response->assertRedirect();
 
@@ -149,6 +192,7 @@ final class ParticipantImportTest extends TestCase
         $this->assertSame(1, $run->added_count);
         $this->assertSame('Chathuranga Ranasingh', $participant->name);
         $this->assertSame('nic:933040186V', $participant->import_key);
+        $this->assertSame($batch->getKey(), $participant->batch_id);
     }
 
     private function assertExcelWasImported($response): void
@@ -176,5 +220,18 @@ final class ParticipantImportTest extends TestCase
 
         $this->assertSame(2, Participant::query()->count());
         $this->assertSame(1, Participant::query()->whereNotNull('import_key')->count());
+    }
+
+    private function assertUnknownBatchRowWasSkipped($response): void
+    {
+        $response->assertRedirect();
+
+        $run = ParticipantImportRun::query()->sole();
+
+        $this->assertSame(0, Participant::query()->count());
+        $this->assertSame(1, $run->skipped_count);
+        $this->assertSame([
+            ['row' => 2, 'reason' => 'Unknown batch mapping: excel batch 37.'],
+        ], $run->skipped_rows);
     }
 }

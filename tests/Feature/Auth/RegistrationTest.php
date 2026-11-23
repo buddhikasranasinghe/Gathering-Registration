@@ -8,6 +8,7 @@ use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\OneTimePasscode;
 use App\Identity\Entities\User;
 use App\Identity\IO\Mail\OneTimePasscodeMail;
+use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -27,6 +28,7 @@ class RegistrationTest extends TestCase
     public function when_a_new_person_registers_then_a_code_is_emailed_and_the_name_is_held(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
 
         $response = $this->post('/register', [
             'name' => 'Buddhika Ranasinghe',
@@ -34,6 +36,23 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertPendingRegistrationStarted($response, 'Buddhika Ranasinghe');
+    }
+
+    #[Test]
+    public function when_a_person_is_not_on_the_participant_list_then_registration_is_rejected(): void
+    {
+        Mail::fake();
+
+        $response = $this->post('/register', [
+            'name' => 'Buddhika',
+            'email' => 'buddhika@example.com',
+        ]);
+
+        $response->assertSessionHasErrors([
+            'email' => 'You must be on the participant list before registering.',
+        ]);
+        Mail::assertNothingSent();
+        $this->assertDatabaseCount('one_time_passcodes', 0);
     }
 
     #[Test]
@@ -67,6 +86,7 @@ class RegistrationTest extends TestCase
     public function when_a_code_was_recently_requested_then_registration_is_rejected(): void
     {
         Mail::fake();
+        $this->participantFor('buddhika@example.com');
         $payload = ['name' => 'Buddhika', 'email' => 'buddhika@example.com'];
         $this->post('/register', $payload);
 
@@ -93,6 +113,11 @@ class RegistrationTest extends TestCase
     {
         $response->assertOk();
         $response->assertSee('Create your account');
+    }
+
+    private function participantFor(string $email): void
+    {
+        Participant::factory()->create(['email' => $email]);
     }
 
     private function assertPendingRegistrationStarted(TestResponse $response, string $name): void

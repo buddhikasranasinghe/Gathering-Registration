@@ -7,6 +7,8 @@ namespace Tests\Feature;
 use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
+use App\Participation\Entities\Batch;
+use Database\Seeders\BatchSeeder;
 use Database\Seeders\SuperAdminSeeder;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -17,6 +19,7 @@ class SuperAdminSeederTest extends TestCase
     #[Test]
     public function when_the_super_admin_is_seeded_then_the_default_account_is_ready(): void
     {
+        $this->seed(BatchSeeder::class);
         $this->seed(SuperAdminSeeder::class);
 
         $user = User::query()->where('email', self::SUPER_ADMIN_EMAIL)->sole();
@@ -27,12 +30,25 @@ class SuperAdminSeederTest extends TestCase
     #[Test]
     public function when_the_super_admin_is_seeded_twice_then_only_one_account_exists(): void
     {
+        $this->seed(BatchSeeder::class);
         $this->seed(SuperAdminSeeder::class);
         $this->seed(SuperAdminSeeder::class);
 
         $this->assertSame(
             1,
             User::query()->where('email', self::SUPER_ADMIN_EMAIL)->count(),
+        );
+    }
+
+    #[Test]
+    public function when_the_batches_are_seeded_twice_then_each_batch_exists_once(): void
+    {
+        $this->seed(BatchSeeder::class);
+        $this->seed(BatchSeeder::class);
+
+        $this->assertSame(
+            ['36', '37', '38', '39', '40'],
+            Batch::query()->orderBy('name')->pluck('name')->all(),
         );
     }
 
@@ -46,5 +62,6 @@ class SuperAdminSeederTest extends TestCase
         );
         $this->assertNull($user->password);
         $this->assertNotNull($user->email_verified_at);
+        $this->assertSame('40', $user->batch?->name);
     }
 }

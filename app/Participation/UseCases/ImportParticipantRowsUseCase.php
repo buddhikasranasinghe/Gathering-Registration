@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Participation\UseCases;
 
+use App\Identity\Entities\User;
+use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantImportRun;
 use App\Participation\Services\ParticipantImportRow;
@@ -37,19 +39,18 @@ final class ImportParticipantRowsUseCase
     private function importRows(array $rows, ParticipantImportRun $run): array
     {
         $importedAt = $run->started_at ?? now();
+        $parsedRows = $this->parsedRows($rows);
+        $batchIds = $this->batchIds($parsedRows);
         $counts = ['added' => 0, 'updated' => 0, 'unchanged' => 0, 'skipped' => 0];
         $skippedRows = [];
 
-        foreach ($rows as $index => $cells) {
-            $rowNumber = $index + 2;
-            $row = ParticipantImportRow::fromCells($cells, $rowNumber);
-
+        foreach ($parsedRows as $index => $row) {
             if ($row === null) {
                 $counts['skipped']++;
 
                 if (count($skippedRows) < 50) {
                     $skippedRows[] = [
-                        'row' => $rowNumber,
+                        'row' => $index + 2,
                         'reason' => 'The row has no name, NIC or phone number.',
                     ];
                 }
@@ -57,7 +58,27 @@ final class ImportParticipantRowsUseCase
                 continue;
             }
 
-            $counts[$this->upsert($row->attributes(), $importedAt)]++;
+            $attributes = $row->attributes();
+            $batchMapperName = $attributes['batch_mapper_name'];
+            unset($attributes['batch_mapper_name']);
+
+            if ($batchMapperName !== null && ! array_key_exists($batchMapperName, $batchIds)) {
+                $counts['skipped']++;
+
+                if (count($skippedRows) < 50) {
+                    $skippedRows[] = [
+                        'row' => $row->rowNumber(),
+                        'reason' => 'Unknown batch mapping: '.$batchMapperName.'.',
+                    ];
+                }
+
+                continue;
+            }
+
+            $counts[$this->upsert([
+                ...$attributes,
+                'batch_id' => $batchMapperName === null ? null : $batchIds[$batchMapperName],
+            ], $importedAt)]++;
         }
 
         return [...$counts, 'skipped_rows' => $skippedRows];
@@ -67,13 +88,12 @@ final class ImportParticipantRowsUseCase
      * @param  array{
      *     name: string,
      *     call_name: ?string,
-     *     batch: ?string,
-     *     batch_number: ?int,
      *     phone: ?string,
      *     nic: ?string,
      *     spouse_attending: ?bool,
      *     spouse_name: ?string,
-     *     import_key: string
+     *     import_key: string,
+     *     batch_id: ?int
      * }  $attributes
      * @return 'added'|'updated'|'unchanged'
      */
@@ -82,10 +102,12 @@ final class ImportParticipantRowsUseCase
         $participant = $this->findExisting($attributes);
 
         if ($participant === null) {
-            Participant::query()->create([
+            $participant = Participant::query()->create([
                 ...$attributes,
                 'last_imported_at' => $importedAt,
             ]);
+
+            $this->syncUserBatch($participant);
 
             return 'added';
         }
@@ -100,8 +122,20 @@ final class ImportParticipantRowsUseCase
         $changed = $participant->isDirty();
         $participant->last_imported_at = $importedAt;
         $participant->save();
+        $this->syncUserBatch($participant);
 
         return $changed ? 'updated' : 'unchanged';
+    }
+
+    private function syncUserBatch(Participant $participant): void
+    {
+        if ($participant->email === null) {
+            return;
+        }
+
+        User::query()
+            ->where('email', $participant->email)
+            ->update(['batch_id' => $participant->batch_id]);
     }
 
     /**
@@ -136,5 +170,42 @@ final class ImportParticipantRowsUseCase
         }
 
         return $byPhone;
+    }
+
+    /**
+     * @param  array<int, array<int, mixed>>  $rows
+     * @return array<int, ?ParticipantImportRow>
+     */
+    private function parsedRows(array $rows): array
+    {
+        return array_map(
+            fn (array $cells, int $index): ?ParticipantImportRow => ParticipantImportRow::fromCells($cells, $index + 2),
+            $rows,
+            array_keys($rows),
+        );
+    }
+
+    /**
+     * @param  array<int, ?ParticipantImportRow>  $rows
+     * @return array<string, int>
+     */
+    private function batchIds(array $rows): array
+    {
+        $mapperNames = collect($rows)
+            ->filter()
+            ->map(fn (ParticipantImportRow $row): ?string => $row->attributes()['batch_mapper_name'])
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($mapperNames->isEmpty()) {
+            return [];
+        }
+
+        return Batch::query()
+            ->whereIn('excel_mapper_name', $mapperNames)
+            ->pluck('id', 'excel_mapper_name')
+            ->map(fn (int $id): int => $id)
+            ->all();
     }
 }

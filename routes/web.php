@@ -9,6 +9,7 @@ use App\Identity\IO\Http\Controllers\Auth\RegistrationController;
 use App\Identity\IO\Http\Controllers\HomeController;
 use App\Identity\IO\Http\Controllers\UserController;
 use App\Identity\IO\Http\Controllers\UserRoleController;
+use App\Participation\IO\Http\Controllers\BatchController;
 use App\Participation\IO\Http\Controllers\ParticipantArchiveController;
 use App\Participation\IO\Http\Controllers\ParticipantController;
 use App\Participation\IO\Http\Controllers\ParticipantImportController;
@@ -43,11 +44,12 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
     Route::get('/participants', ParticipantController::class)->name('participants.index');
-    Route::post('/participants/{participant}/archive', [ParticipantArchiveController::class, 'store'])
-        ->name('participants.archive');
 });
 
 Route::middleware(['auth', 'role:super_admin'])->group(function () {
+    Route::post('/participants/{participant}/archive', [ParticipantArchiveController::class, 'store'])
+        ->name('participants.archive');
+    Route::resource('batches', BatchController::class)->except('show', 'destroy');
     Route::get('/users', UserController::class)->name('users.index');
     Route::patch('/users/{user}/role', [UserRoleController::class, 'update'])->name('users.role.update');
     Route::post('/participants/import', [ParticipantImportController::class, 'store'])

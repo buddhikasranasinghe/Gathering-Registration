@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Identity\Entities\User;
+use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -24,8 +25,7 @@ class ParticipantFactory extends Factory
             'name' => fake()->name(),
             'email' => null,
             'call_name' => null,
-            'batch' => null,
-            'batch_number' => null,
+            'batch_id' => null,
             'phone' => null,
             'nic' => null,
             'spouse_attending' => null,
@@ -44,8 +44,7 @@ class ParticipantFactory extends Factory
     public function imported(): static
     {
         return $this->state(fn (): array => [
-            'batch' => '37 (2013 - 2014)',
-            'batch_number' => 37,
+            'batch_id' => Batch::factory(),
             'phone' => '0773370555',
             'nic' => '933040186V',
             'import_key' => 'nic:933040186V',

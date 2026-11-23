@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
+use App\Participation\Entities\Batch;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -47,6 +48,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Admin,
+            'batch_id' => Batch::factory(),
         ]);
     }
 

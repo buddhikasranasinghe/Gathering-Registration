@@ -46,6 +46,7 @@
                     <tr>
                         <th scope="col" class="px-4 py-3 font-semibold">User</th>
                         <th scope="col" class="px-4 py-3 font-semibold">Role</th>
+                        <th scope="col" class="px-4 py-3 font-semibold">Batch</th>
                         <th scope="col" class="px-4 py-3 font-semibold">Joined</th>
                         <th scope="col" class="px-4 py-3 font-semibold"><span class="sr-only">Role actions</span></th>
                     </tr>
@@ -59,6 +60,9 @@
                             </td>
                             <td class="px-4 py-3 align-top">
                                 <x-ui.role-badge :role="$user->role" />
+                            </td>
+                            <td class="px-4 py-3 align-top text-slate-600">
+                                {{ $user->batch?->name ?? '—' }}
                             </td>
                             <td class="px-4 py-3 align-top text-slate-600">
                                 {{ $user->created_at->format('j M Y') }}
@@ -93,7 +97,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-4 py-10 text-center text-sm text-slate-500">
+                            <td colspan="5" class="px-4 py-10 text-center text-sm text-slate-500">
                                 No users match the current search.
                             </td>
                         </tr>

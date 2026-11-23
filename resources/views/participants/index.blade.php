@@ -14,6 +14,12 @@
 
     <x-ui.alerts />
 
+    @if (! $hasAssignedBatch)
+        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            No batch is assigned to your account. Contact the Super Admin.
+        </div>
+    @endif
+
     <div class="mb-6 grid gap-4 sm:grid-cols-3">
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Participants</p>
@@ -31,7 +37,8 @@
         </div>
     </div>
 
-    <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    @if ($canImport)
+        <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h2 class="text-lg font-semibold tracking-tight">Spreadsheet import</h2>
@@ -72,7 +79,9 @@
                         </button>
                     </form>
 
-                    <p class="mt-2 text-xs text-slate-500">Upload a CSV or Excel file (up to 5 MB). Imports run immediately.</p>
+                    <p class="mt-2 text-xs text-slate-500">
+                        Upload a CSV or Excel file (up to 5 MB). Batch values must match an Excel mapper name in Batches.
+                    </p>
                 </div>
             @endif
         </div>
@@ -127,7 +136,8 @@
                 </ul>
             </div>
         @endif
-    </section>
+        </section>
+    @endif
 
     <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <form
@@ -147,19 +157,21 @@
                 >
             </div>
 
+            @if ($canImport)
             <div>
                 <label for="batch" class="block text-xs font-medium uppercase tracking-wide text-slate-500">Batch</label>
                 <select
                     id="batch"
-                    name="batch"
+                    name="batch_id"
                     class="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                 >
                     <option value="">All batches</option>
                     @foreach ($batches as $batch)
-                        <option value="{{ $batch }}" @selected($filters['batch'] === $batch)>{{ $batch }}</option>
+                        <option value="{{ $batch->id }}" @selected($filters['batchId'] === $batch->id)>{{ $batch->name }}</option>
                     @endforeach
                 </select>
             </div>
+            @endif
 
             <label class="flex items-center gap-2 pb-2 text-sm text-slate-600">
                 <input type="checkbox" name="archived" value="1" @checked($filters['archived'])>
@@ -205,7 +217,7 @@
                                 @endif
                             </td>
 
-                            <td class="px-4 py-3 align-top text-slate-600">{{ $participant->batch ?? '—' }}</td>
+                            <td class="px-4 py-3 align-top text-slate-600">{{ $participant->batch?->name ?? '—' }}</td>
                             <td class="px-4 py-3 align-top text-slate-600">{{ $participant->phone ?? '—' }}</td>
 
                             <td class="px-4 py-3 align-top text-slate-600">
@@ -247,7 +259,7 @@
                             </td>
 
                             <td class="px-4 py-3 align-top text-right">
-                                @unless ($participant->isArchived())
+                                @if ($canArchive && ! $participant->isArchived())
                                     <details class="text-left">
                                         <summary class="cursor-pointer text-xs font-medium text-rose-600 hover:text-rose-500">
                                             Archive
@@ -280,7 +292,7 @@
                                             </button>
                                         </form>
                                     </details>
-                                @endunless
+                                @endif
                             </td>
                         </tr>
                     @empty

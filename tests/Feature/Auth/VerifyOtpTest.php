@@ -8,6 +8,7 @@ use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\OneTimePasscode;
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
+use App\Participation\Entities\Participant;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -118,6 +119,8 @@ class VerifyOtpTest extends TestCase
 
     private function startRegistration(string $email): void
     {
+        Participant::factory()->create(['name' => 'Buddhika', 'email' => $email]);
+
         $this->post('/register', ['name' => 'Buddhika', 'email' => $email]);
     }
 

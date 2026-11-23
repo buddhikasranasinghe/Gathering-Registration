@@ -7,6 +7,7 @@ namespace App\Identity\IO\Http\Controllers\Auth;
 use App\Foundation\IO\Http\Controllers\Controller;
 use App\Identity\Exceptions\AccountAlreadyExistsException;
 use App\Identity\Exceptions\OtpCooldownException;
+use App\Identity\Exceptions\ParticipantNotFoundException;
 use App\Identity\IO\Http\OtpSession;
 use App\Identity\IO\Http\Requests\Auth\RegisterFormRequest;
 use App\Identity\UseCases\RegisterUseCase;
@@ -39,6 +40,8 @@ class RegistrationController extends Controller
             return $this->accountAlreadyExists($registerRequest, $exception);
         } catch (OtpCooldownException $exception) {
             return $this->cooldownActive($exception);
+        } catch (ParticipantNotFoundException $exception) {
+            return back()->withInput()->withErrors(['email' => $exception->getMessage()]);
         }
 
         OtpSession::put($request->session(), $registerRequest->email);

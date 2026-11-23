@@ -7,6 +7,7 @@ namespace App\Identity\Tests;
 use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
+use App\Participation\Entities\Batch;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -20,7 +21,7 @@ final class UserRoleManagementTest extends TestCase
         UserRole $newRole,
     ): void {
         $superAdmin = User::factory()->superAdmin()->create();
-        $user = User::factory()->create(['role' => $currentRole]);
+        $user = User::factory()->for(Batch::factory())->create(['role' => $currentRole]);
 
         $response = $this->actingAs($superAdmin)->patch(
             route('users.role.update', $user),
@@ -28,6 +29,23 @@ final class UserRoleManagementTest extends TestCase
         );
 
         $this->assertRoleWasUpdated($response, $user, $newRole);
+    }
+
+    #[Test]
+    public function when_a_super_admin_promotes_a_user_without_a_batch_then_the_change_is_rejected(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($superAdmin)->patch(
+            route('users.role.update', $user),
+            ['role' => UserRole::Admin->value],
+        );
+
+        $response->assertSessionHasErrors([
+            'role' => 'A user without a batch cannot be promoted to Admin. Update the participant spreadsheet first.',
+        ]);
+        $this->assertSame(UserRole::User, $user->refresh()->role);
     }
 
     #[Test]
@@ -91,7 +109,7 @@ final class UserRoleManagementTest extends TestCase
     public function when_a_super_admin_views_the_users_page_then_the_protected_and_editable_roles_are_shown(): void
     {
         $superAdmin = User::factory()->superAdmin()->create(['name' => 'Buddhika']);
-        $user = User::factory()->create(['name' => 'Saman']);
+        $user = User::factory()->for(Batch::factory()->state(['name' => '40']))->create(['name' => 'Saman']);
 
         $response = $this->actingAs($superAdmin)->get(route('users.index'));
 
@@ -183,6 +201,7 @@ final class UserRoleManagementTest extends TestCase
         $response->assertOk();
         $response->assertSee($user->name);
         $response->assertSee('Protected');
+        $response->assertSee('40');
         $response->assertSee('Update role');
     }
 
