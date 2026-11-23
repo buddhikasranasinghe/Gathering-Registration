@@ -10,9 +10,13 @@ use App\Identity\IO\Http\Controllers\HomeController;
 use App\Identity\IO\Http\Controllers\UserController;
 use App\Identity\IO\Http\Controllers\UserRoleController;
 use App\Participation\IO\Http\Controllers\BatchController;
-use App\Participation\IO\Http\Controllers\ParticipantArchiveController;
+use App\Participation\IO\Http\Controllers\DownloadIssuedTicketController;
+use App\Participation\IO\Http\Controllers\DownloadPaymentSlipController;
+use App\Participation\IO\Http\Controllers\IssueTicketController;
 use App\Participation\IO\Http\Controllers\ParticipantController;
 use App\Participation\IO\Http\Controllers\ParticipantImportController;
+use App\Participation\IO\Http\Controllers\RecordPaymentController;
+use App\Participation\IO\Http\Controllers\ShowParticipantController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/home');
@@ -44,11 +48,14 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
     Route::get('/participants', ParticipantController::class)->name('participants.index');
+    Route::get('/participants/{participant}', ShowParticipantController::class)->name('participants.show');
+    Route::post('/participants/{participant}/payments', RecordPaymentController::class)->name('participants.payments.store');
+    Route::post('/participants/{participant}/tickets', IssueTicketController::class)->name('participants.tickets.store');
+    Route::get('/participants/{participant}/payments/{payment}/slip', DownloadPaymentSlipController::class)->name('participants.payments.slip');
+    Route::get('/participants/{participant}/tickets/{ticket}/download', DownloadIssuedTicketController::class)->name('participants.tickets.download');
 });
 
 Route::middleware(['auth', 'role:super_admin'])->group(function () {
-    Route::post('/participants/{participant}/archive', [ParticipantArchiveController::class, 'store'])
-        ->name('participants.archive');
     Route::resource('batches', BatchController::class)->except('show', 'destroy');
     Route::get('/users', UserController::class)->name('users.index');
     Route::patch('/users/{user}/role', [UserRoleController::class, 'update'])->name('users.role.update');

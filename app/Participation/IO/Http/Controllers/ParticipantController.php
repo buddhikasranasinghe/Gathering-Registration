@@ -47,39 +47,32 @@ class ParticipantController extends Controller
                     ->whereNull('archived_at')
                     ->where('spouse_attending', true)
                     ->count(),
-                'archived' => $this->participantsFor($user)->whereNotNull('archived_at')->count(),
             ],
             'canImport' => $user->role === UserRole::SuperAdmin,
-            'canArchive' => $user->role === UserRole::SuperAdmin,
             'hasAssignedBatch' => $user->role === UserRole::SuperAdmin || $user->batch_id !== null,
         ]);
     }
 
     /**
-     * @return array{search: string, batchId: ?int, archived: bool}
+     * @return array{search: string, batchId: ?int}
      */
     private function filters(Request $request): array
     {
         return [
             'search' => trim((string) $request->query('search', '')),
             'batchId' => $request->integer('batch_id') ?: null,
-            'archived' => $request->boolean('archived'),
         ];
     }
 
     /**
-     * @param  array{search: string, batchId: ?int, archived: bool}  $filters
+     * @param  array{search: string, batchId: ?int}  $filters
      * @return LengthAwarePaginator<int, Participant>
      */
     private function participants(array $filters, User $user): LengthAwarePaginator
     {
-        $query = $this->participantsFor($user)->with(['archivedBy:id,name', 'batch:id,name']);
-
-        if ($filters['archived']) {
-            $query->whereNotNull('archived_at');
-        } else {
-            $query->whereNull('archived_at');
-        }
+        $query = $this->participantsFor($user)
+            ->with('batch:id,name')
+            ->whereNull('archived_at');
 
         if ($user->role === UserRole::SuperAdmin && $filters['batchId'] !== null) {
             $query->where('batch_id', $filters['batchId']);

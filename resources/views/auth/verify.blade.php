@@ -1,9 +1,9 @@
 <x-layouts.guest title="Verify your email">
     <div class="mb-6">
-        <h1 class="text-xl font-semibold tracking-tight">Check your email</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <h1 class="font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Check your email</h1>
+        <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
             Enter the {{ config('otp.code_length') }}-digit code we sent to
-            <span class="font-medium text-slate-700">{{ $email }}</span>.
+            <span class="font-semibold text-slate-800 dark:text-slate-200">{{ $email }}</span>.
             It expires in {{ config('otp.expires_after_minutes') }} minutes.
         </p>
     </div>
@@ -14,7 +14,7 @@
         @csrf
 
         <div>
-            <label for="code" class="block text-sm font-medium text-slate-700">Verification code</label>
+            <label for="code" class="label">Verification code</label>
             <input
                 id="code"
                 name="code"
@@ -26,20 +26,18 @@
                 required
                 autofocus
                 autocomplete="one-time-code"
-                class="mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-center font-mono text-2xl tracking-[0.4em] shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                placeholder="••••••"
+                class="field mt-2 py-3 text-center font-mono text-2xl tracking-[0.4em]"
             >
         </div>
 
-        <button
-            type="submit"
-            class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-200"
-        >
+        <x-ui.button type="submit" size="lg" class="w-full">
             Verify and continue
-        </button>
+        </x-ui.button>
     </form>
 
-    <div class="mt-6 flex items-center justify-between text-sm">
-        <a href="{{ route('login') }}" class="text-slate-500 transition hover:text-slate-700">
+    <div class="mt-6 flex items-center justify-between gap-3 text-sm">
+        <a href="{{ route('login') }}" class="text-slate-600 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">
             Use a different email
         </a>
 
@@ -49,7 +47,7 @@
                 type="submit"
                 data-resend-button
                 data-cooldown="{{ $resendAfter }}"
-                class="font-medium text-indigo-600 transition hover:text-indigo-500 disabled:cursor-not-allowed disabled:text-slate-400"
+                class="link disabled:cursor-not-allowed disabled:text-slate-400 disabled:dark:text-slate-500"
             >
                 Resend code
             </button>

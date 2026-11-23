@@ -6,6 +6,8 @@ namespace App\Identity\Entities;
 
 use App\Identity\Observers\UserObserver;
 use App\Participation\Entities\Batch;
+use App\Participation\Entities\IssuedTicket;
+use App\Participation\Entities\Payment;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -59,6 +61,26 @@ class User extends Authenticatable
     public function batch(): BelongsTo
     {
         return $this->belongsTo(Batch::class);
+    }
+
+    /**
+     * Payments recorded by this user.
+     *
+     * @return HasMany<Payment, $this>
+     */
+    public function recordedPayments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'recorded_by');
+    }
+
+    /**
+     * Tickets issued by this user.
+     *
+     * @return HasMany<IssuedTicket, $this>
+     */
+    public function issuedTickets(): HasMany
+    {
+        return $this->hasMany(IssuedTicket::class, 'issued_by');
     }
 
     /**
