@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Participation\IO\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class IssueTicketRequest extends FormRequest
@@ -13,8 +14,13 @@ class IssueTicketRequest extends FormRequest
         return $this->user()?->isAdministrator() ?? false;
     }
 
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
     public function rules(): array
     {
-        return [];
+        return [
+            'email' => ['nullable', 'email', 'max:255'],
+        ];
     }
 }

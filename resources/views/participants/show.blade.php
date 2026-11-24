@@ -729,18 +729,41 @@
             @if ($activeTab !== 'ticket') hidden @endif
             class="mt-6 space-y-6"
         >
-            @if ($canManage)
-                <x-ui.glass-card title="Issue a ticket">
-                    <p class="mb-4 text-sm text-slate-600 dark:text-slate-400">
-                        Issue a ticket once the payment is settled. The ticket number is generated automatically.
+            <x-ui.glass-card title="Issue a ticket" subtitle="Generate a PDF, email it, and keep a copy for resending.">
+                @if ($ticketEligibility['canGenerate'])
+                    <p class="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                        Payment is settled. A ticket can be generated for {{ number_format($summary['ticketPrice'], 2) }}.
                     </p>
+                @else
+                    <p class="rounded-xl border border-amber-400/35 bg-amber-400/15 px-4 py-3 text-sm font-medium text-amber-900 dark:text-amber-100">
+                        {{ $ticketEligibility['message'] }}
+                    </p>
+                @endif
 
-                    <form method="POST" action="{{ route('participants.tickets.store', $participant) }}">
+                @if ($canManage)
+                    <form method="POST" action="{{ route('participants.tickets.store', $participant) }}" class="mt-4 grid gap-3.5 sm:grid-cols-[1fr_auto] sm:items-end">
                         @csrf
-                        <x-ui.button type="submit" class="w-full">Issue ticket</x-ui.button>
+
+                        <div>
+                            <label for="ticket-email" class="label">Email the ticket to (optional)</label>
+                            <input
+                                id="ticket-email"
+                                name="email"
+                                type="email"
+                                maxlength="255"
+                                value="{{ old('email', $participant->email) }}"
+                                placeholder="name@example.com"
+                                class="field mt-1.5"
+                            >
+                            @error('email')
+                                <p class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <x-ui.button type="submit" class="w-full sm:w-auto" :disabled="! $ticketEligibility['canGenerate']">Generate and email ticket</x-ui.button>
                     </form>
-                </x-ui.glass-card>
-            @endif
+                @endif
+            </x-ui.glass-card>
 
             <section class="glass overflow-hidden">
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300/40 p-4 dark:border-white/10 sm:p-5">
@@ -755,8 +778,9 @@
                                 <th scope="col" class="px-4 py-3">Ticket no.</th>
                                 <th scope="col" class="px-4 py-3">Issued on</th>
                                 <th scope="col" class="px-4 py-3">Status</th>
+                                <th scope="col" class="hidden px-4 py-3 lg:table-cell">Delivered to</th>
                                 <th scope="col" class="hidden px-4 py-3 md:table-cell">Issued by</th>
-                                <th scope="col" class="px-4 py-3">Download</th>
+                                <th scope="col" class="px-4 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-300/30 dark:divide-white/5">
@@ -765,22 +789,55 @@
                                     <td class="px-4 py-3 font-mono text-xs font-semibold text-slate-900 dark:text-white">{{ $ticket->ticket_number }}</td>
                                     <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ $ticket->issued_at->format('j M Y, H:i') }}</td>
                                     <td class="px-4 py-3">
-                                        <x-ui.badge :tone="$ticket->status === \App\Participation\Entities\TicketStatus::Issued ? 'emerald' : 'rose'">
+                                        <x-ui.badge :tone="$ticket->isActive() ? 'emerald' : 'rose'">
                                             {{ $ticket->status->label() }}
                                         </x-ui.badge>
                                     </td>
+                                    <td class="hidden px-4 py-3 lg:table-cell">
+                                        @if ($ticket->emailed_at)
+                                            <p class="max-w-52 truncate font-medium text-slate-800 dark:text-slate-100">{{ $ticket->emailed_to }}</p>
+                                            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                {{ $ticket->emailed_at->format('j M Y, H:i') }}
+                                                @if ($ticket->email_send_count > 1)
+                                                    · {{ $ticket->email_send_count }} sends
+                                                @endif
+                                            </p>
+                                        @else
+                                            <span class="text-slate-400 dark:text-slate-500">Not emailed</span>
+                                        @endif
+                                    </td>
                                     <td class="hidden px-4 py-3 text-slate-600 dark:text-slate-300 md:table-cell">{{ $ticket->issuedBy?->name ?? '—' }}</td>
                                     <td class="px-4 py-3">
-                                        @if ($ticket->file_path)
-                                            <a href="{{ route('participants.tickets.download', [$participant, $ticket]) }}" class="link text-xs">Download</a>
-                                        @else
-                                            <span class="text-slate-400 dark:text-slate-500">—</span>
-                                        @endif
+                                        <div class="flex flex-wrap items-center justify-end gap-3">
+                                            @if ($ticket->file_path)
+                                                <a href="{{ route('participants.tickets.download', [$participant, $ticket]) }}" class="link text-xs">Download</a>
+                                            @endif
+
+                                            @if ($canManage && $ticket->isActive())
+                                                <button
+                                                    type="button"
+                                                    data-ticket-resend
+                                                    data-ticket-number="{{ $ticket->ticket_number }}"
+                                                    data-ticket-email="{{ $ticket->emailed_to ?? $participant->email ?? '' }}"
+                                                    class="link text-xs"
+                                                >
+                                                    Resend
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    data-ticket-deactivate
+                                                    data-ticket-number="{{ $ticket->ticket_number }}"
+                                                    class="text-xs font-medium text-rose-600 transition hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:text-rose-300 dark:hover:text-rose-200"
+                                                >
+                                                    Deactivate
+                                                </button>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="px-4 py-12 text-center">
+                                    <td colspan="6" class="px-4 py-12 text-center">
                                         <p class="font-display font-semibold text-slate-700 dark:text-slate-200">No tickets issued yet.</p>
                                         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Issue a ticket once the payment is settled.</p>
                                     </td>
@@ -790,6 +847,89 @@
                     </table>
                 </div>
             </section>
+
+            @if ($canManage)
+                <form id="ticket-deactivate-form" method="POST" class="hidden">
+                    @csrf
+                    @method('PATCH')
+                </form>
+
+                <dialog
+                    id="ticket-resend-confirm"
+                    aria-labelledby="ticket-resend-title"
+                    data-ticket-resend-confirm
+                    data-resend-route-template="{{ route('participants.tickets.resend', [$participant, '__TICKET__']) }}"
+                    class="m-auto w-[min(28rem,calc(100vw-2rem))] max-h-[85vh] rounded-2xl border border-slate-300/60 bg-white/95 p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/50 backdrop:backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/95 dark:text-white"
+                >
+                    <form method="POST" class="p-5" id="ticket-resend-dialog-form">
+                        @csrf
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 id="ticket-resend-title" class="font-display text-lg font-semibold tracking-tight">Resend ticket</h2>
+                                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" data-ticket-resend-summary>—</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                data-ticket-resend-cancel
+                                aria-label="Close resend dialog"
+                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-500/10 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:hover:text-slate-200"
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M18 6 6 18M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="ticket-resend-email" class="label">Recipient email</label>
+                            <input
+                                id="ticket-resend-email"
+                                name="email"
+                                type="email"
+                                maxlength="255"
+                                required
+                                class="field mt-1.5"
+                            >
+                        </div>
+
+                        <div class="mt-5 flex flex-wrap justify-end gap-2 border-t border-slate-300/40 pt-3 dark:border-white/10">
+                            <x-ui.button type="button" variant="secondary" size="sm" data-ticket-resend-cancel>Cancel</x-ui.button>
+                            <x-ui.button type="submit" size="sm">Send ticket</x-ui.button>
+                        </div>
+                    </form>
+                </dialog>
+
+                <dialog
+                    id="ticket-deactivate-confirm"
+                    aria-labelledby="ticket-deactivate-title"
+                    aria-describedby="ticket-deactivate-description"
+                    data-ticket-deactivate-confirm
+                    data-deactivate-route-template="{{ route('participants.tickets.deactivate', [$participant, '__TICKET__']) }}"
+                    class="m-auto w-[min(28rem,calc(100vw-2rem))] max-h-[85vh] rounded-2xl border border-rose-300/60 bg-white/95 p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/50 backdrop:backdrop-blur-sm dark:border-rose-400/20 dark:bg-slate-900/95 dark:text-white"
+                >
+                    <div class="flex gap-4 p-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-300">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M18 6 6 18M6 6l12 12" />
+                            </svg>
+                        </span>
+
+                        <div>
+                            <h2 id="ticket-deactivate-title" class="font-display text-lg font-semibold tracking-tight">Deactivate ticket?</h2>
+                            <p id="ticket-deactivate-description" class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                                The ticket will stop verifying and cannot be resent. Its file and history are kept for audit.
+                            </p>
+                            <p data-ticket-deactivate-summary class="mt-3 rounded-lg bg-rose-500/10 px-3 py-2 font-mono text-xs font-semibold text-rose-800 dark:text-rose-200">—</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-end gap-2 border-t border-slate-300/40 px-5 py-3 dark:border-white/10">
+                        <x-ui.button type="button" variant="secondary" size="sm" data-ticket-deactivate-cancel>Cancel</x-ui.button>
+                        <x-ui.button type="submit" form="ticket-deactivate-form" variant="danger" size="sm">Deactivate ticket</x-ui.button>
+                    </div>
+                </dialog>
+            @endif
         </section>
     </div>
 </x-layouts.app>

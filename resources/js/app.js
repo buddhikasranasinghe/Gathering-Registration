@@ -616,6 +616,84 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const ticketResendDialog = document.getElementById('ticket-resend-confirm');
+
+    if (ticketResendDialog) {
+        const form = ticketResendDialog.querySelector('form');
+        const emailInput = ticketResendDialog.querySelector('input[name="email"]');
+        const summary = ticketResendDialog.querySelector('[data-ticket-resend-summary]');
+
+        const close = () => {
+            if (typeof ticketResendDialog.close === 'function') {
+                ticketResendDialog.close();
+            } else {
+                ticketResendDialog.removeAttribute('open');
+            }
+        };
+
+        ticketResendDialog.querySelectorAll('[data-ticket-resend-cancel]').forEach((control) => {
+            control.addEventListener('click', close);
+        });
+
+        ticketResendDialog.addEventListener('click', (event) => {
+            if (event.target === ticketResendDialog) {
+                close();
+            }
+        });
+
+        document.querySelectorAll('[data-ticket-resend]').forEach((button) => {
+            button.addEventListener('click', () => {
+                form.action = ticketResendDialog.dataset.resendRouteTemplate.replace('__TICKET__', button.dataset.ticketNumber);
+                emailInput.value = button.dataset.ticketEmail ?? '';
+                summary.textContent = button.dataset.ticketNumber;
+
+                if (typeof ticketResendDialog.showModal === 'function') {
+                    ticketResendDialog.showModal();
+                } else {
+                    ticketResendDialog.setAttribute('open', '');
+                }
+            });
+        });
+    }
+
+    const ticketDeactivateDialog = document.getElementById('ticket-deactivate-confirm');
+
+    if (ticketDeactivateDialog) {
+        const form = document.getElementById('ticket-deactivate-form');
+        const summary = ticketDeactivateDialog.querySelector('[data-ticket-deactivate-summary]');
+
+        const close = () => {
+            if (typeof ticketDeactivateDialog.close === 'function') {
+                ticketDeactivateDialog.close();
+            } else {
+                ticketDeactivateDialog.removeAttribute('open');
+            }
+        };
+
+        ticketDeactivateDialog.querySelectorAll('[data-ticket-deactivate-cancel]').forEach((control) => {
+            control.addEventListener('click', close);
+        });
+
+        ticketDeactivateDialog.addEventListener('click', (event) => {
+            if (event.target === ticketDeactivateDialog) {
+                close();
+            }
+        });
+
+        document.querySelectorAll('[data-ticket-deactivate]').forEach((button) => {
+            button.addEventListener('click', () => {
+                form.action = ticketDeactivateDialog.dataset.deactivateRouteTemplate.replace('__TICKET__', button.dataset.ticketNumber);
+                summary.textContent = button.dataset.ticketNumber;
+
+                if (typeof ticketDeactivateDialog.showModal === 'function') {
+                    ticketDeactivateDialog.showModal();
+                } else {
+                    ticketDeactivateDialog.setAttribute('open', '');
+                }
+            });
+        });
+    }
+
     document.querySelectorAll('[data-attendance-toggle]').forEach((toggle) => {
         toggle.addEventListener('change', () => toggle.form?.requestSubmit());
     });

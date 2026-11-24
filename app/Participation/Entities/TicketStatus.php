@@ -6,14 +6,19 @@ namespace App\Participation\Entities;
 
 enum TicketStatus: string
 {
-    case Issued = 'issued';
-    case Cancelled = 'cancelled';
+    case Active = 'active';
+    case Deactivated = 'deactivated';
 
     public function label(): string
     {
         return match ($this) {
-            self::Issued => 'Issued',
-            self::Cancelled => 'Cancelled',
+            self::Active => 'Active',
+            self::Deactivated => 'Deactivated',
         };
+    }
+
+    public function isActive(): bool
+    {
+        return $this === self::Active;
     }
 }

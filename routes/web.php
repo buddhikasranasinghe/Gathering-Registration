@@ -10,6 +10,7 @@ use App\Identity\IO\Http\Controllers\HomeController;
 use App\Identity\IO\Http\Controllers\UserController;
 use App\Identity\IO\Http\Controllers\UserRoleController;
 use App\Participation\IO\Http\Controllers\BatchController;
+use App\Participation\IO\Http\Controllers\DeactivateTicketController;
 use App\Participation\IO\Http\Controllers\DeletePaymentController;
 use App\Participation\IO\Http\Controllers\DeleteRelationController;
 use App\Participation\IO\Http\Controllers\DownloadIssuedTicketController;
@@ -18,12 +19,14 @@ use App\Participation\IO\Http\Controllers\IssueTicketController;
 use App\Participation\IO\Http\Controllers\ParticipantController;
 use App\Participation\IO\Http\Controllers\ParticipantImportController;
 use App\Participation\IO\Http\Controllers\RecordPaymentController;
+use App\Participation\IO\Http\Controllers\ResendTicketController;
 use App\Participation\IO\Http\Controllers\ShowParticipantController;
 use App\Participation\IO\Http\Controllers\StoreRelationController;
 use App\Participation\IO\Http\Controllers\StreamPaymentSlipPreviewController;
 use App\Participation\IO\Http\Controllers\UpdateAttendanceController;
 use App\Participation\IO\Http\Controllers\UpdatePaymentController;
 use App\Participation\IO\Http\Controllers\UpdateRelationAttendanceController;
+use App\Participation\IO\Http\Controllers\VerifyTicketController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/home');
@@ -48,6 +51,10 @@ Route::middleware('guest')->group(function () {
         ->name('verify.resend');
 });
 
+Route::get('/tickets/{ticket}/verify', VerifyTicketController::class)
+    ->middleware('signed')
+    ->name('tickets.verify');
+
 Route::middleware('auth')->group(function () {
     Route::get('/home', HomeController::class)->name('home');
     Route::post('/logout', LogoutController::class)->name('logout');
@@ -64,6 +71,8 @@ Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
     Route::patch('/participants/{participant}/payments/{payment}', UpdatePaymentController::class)->name('participants.payments.update');
     Route::delete('/participants/{participant}/payments/{payment}', DeletePaymentController::class)->name('participants.payments.destroy');
     Route::post('/participants/{participant}/tickets', IssueTicketController::class)->name('participants.tickets.store');
+    Route::post('/participants/{participant}/tickets/{ticket}/resend', ResendTicketController::class)->name('participants.tickets.resend');
+    Route::patch('/participants/{participant}/tickets/{ticket}/deactivate', DeactivateTicketController::class)->name('participants.tickets.deactivate');
     Route::get('/participants/{participant}/payments/{payment}/slip', DownloadPaymentSlipController::class)->name('participants.payments.slip');
     Route::get('/participants/{participant}/payments/{payment}/slip/preview', StreamPaymentSlipPreviewController::class)->name('participants.payments.slip.preview');
     Route::get('/participants/{participant}/tickets/{ticket}/download', DownloadIssuedTicketController::class)->name('participants.tickets.download');
