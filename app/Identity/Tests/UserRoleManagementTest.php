@@ -50,7 +50,7 @@ final class UserRoleManagementTest extends TestCase
     }
 
     #[Test]
-    public function when_a_super_admin_attempts_to_assign_the_super_admin_role_then_the_change_is_rejected(): void
+    public function when_a_super_admin_promotes_a_user_without_a_batch_then_the_super_admin_role_is_saved(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
         $user = User::factory()->create();
@@ -60,11 +60,11 @@ final class UserRoleManagementTest extends TestCase
             ['role' => UserRole::SuperAdmin->value],
         );
 
-        $this->assertSuperAdminRoleWasRejected($response, $user);
+        $this->assertRoleWasUpdated($response, $user, UserRole::SuperAdmin, 'a Super Admin');
     }
 
     #[Test]
-    public function when_a_super_admin_attempts_to_change_the_protected_role_then_the_change_is_rejected(): void
+    public function when_a_super_admin_attempts_to_change_their_own_role_then_the_change_is_rejected(): void
     {
         $superAdmin = User::factory()->superAdmin()->create();
 
@@ -73,7 +73,7 @@ final class UserRoleManagementTest extends TestCase
             ['role' => UserRole::User->value],
         );
 
-        $this->assertProtectedRoleWasNotChanged($response, $superAdmin);
+        $this->assertOwnRoleWasNotChanged($response, $superAdmin);
     }
 
     #[DataProvider('nonSuperAdminRoles')]
@@ -224,6 +224,10 @@ final class UserRoleManagementTest extends TestCase
         return [
             'promote a user' => [UserRole::User, UserRole::Admin, 'an Admin'],
             'demote an admin' => [UserRole::Admin, UserRole::User, 'a User'],
+            'promote a user to super admin' => [UserRole::User, UserRole::SuperAdmin, 'a Super Admin'],
+            'promote an admin to super admin' => [UserRole::Admin, UserRole::SuperAdmin, 'a Super Admin'],
+            'demote a super admin to a user' => [UserRole::SuperAdmin, UserRole::User, 'a User'],
+            'demote a super admin to an admin' => [UserRole::SuperAdmin, UserRole::Admin, 'an Admin'],
         ];
     }
 
@@ -248,17 +252,9 @@ final class UserRoleManagementTest extends TestCase
         $this->assertSame([$role->value], $user->roles()->pluck('name')->all());
     }
 
-    private function assertSuperAdminRoleWasRejected(TestResponse $response, User $user): void
+    private function assertOwnRoleWasNotChanged(TestResponse $response, User $superAdmin): void
     {
-        $response->assertSessionHasErrors('role');
-        $user->refresh();
-
-        $this->assertSame(UserRole::User, $user->role);
-    }
-
-    private function assertProtectedRoleWasNotChanged(TestResponse $response, User $superAdmin): void
-    {
-        $response->assertSessionHasErrors(['role' => 'The Super Admin role is protected.']);
+        $response->assertSessionHasErrors(['role' => 'You cannot change your own role.']);
         $superAdmin->refresh();
 
         $this->assertSame(UserRole::SuperAdmin, $superAdmin->role);
@@ -277,7 +273,14 @@ final class UserRoleManagementTest extends TestCase
         $response->assertOk();
         $response->assertSee($user->name);
         $response->assertSee('Protected');
+        $response->assertSee('title="You cannot change your own role."', false);
         $response->assertSee('40');
+        $response->assertSeeInOrder([
+            'id="role-'.$user->id.'"',
+            'value="'.UserRole::SuperAdmin->value.'"',
+            'value="'.UserRole::Admin->value.'"',
+            'value="'.UserRole::User->value.'"',
+        ], false);
     }
 
     private function assertUsersPageIsFiltered(TestResponse $response): void

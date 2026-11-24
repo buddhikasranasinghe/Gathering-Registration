@@ -92,7 +92,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Whether the account is the protected Super Admin account.
+     * Whether the account has the Super Admin role.
      */
     public function isSuperAdmin(): bool
     {

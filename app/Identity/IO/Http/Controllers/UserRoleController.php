@@ -32,7 +32,11 @@ class UserRoleController extends Controller
             return back()->withErrors(['role' => $exception->getMessage()]);
         }
 
-        $roleWithArticle = $role === UserRole::Admin ? 'an Admin' : 'a User';
+        $roleWithArticle = match ($role) {
+            UserRole::SuperAdmin => 'a Super Admin',
+            UserRole::Admin => 'an Admin',
+            UserRole::User => 'a User',
+        };
 
         return back()->with('status', $user->name.' is now '.$roleWithArticle.'.');
     }

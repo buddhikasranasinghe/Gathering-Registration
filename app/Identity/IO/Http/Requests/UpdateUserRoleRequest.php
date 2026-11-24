@@ -24,7 +24,11 @@ class UpdateUserRoleRequest extends FormRequest
         return [
             'role' => [
                 'required',
-                Rule::in([UserRole::User->value, UserRole::Admin->value]),
+                Rule::in([
+                    UserRole::User->value,
+                    UserRole::Admin->value,
+                    UserRole::SuperAdmin->value,
+                ]),
             ],
         ];
     }

@@ -4,7 +4,7 @@
             <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-violet-700 dark:text-violet-300">Access</p>
             <h1 class="mt-1 font-display text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">Users</h1>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Manage administrator access. The Super Admin role is protected.
+                Manage administrator access. You cannot change your own role.
             </p>
         </div>
 
@@ -99,8 +99,11 @@
                             </td>
 
                             <td class="px-4 py-3 align-top text-right">
-                                @if ($user->isSuperAdmin())
-                                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                @if (auth()->id() === $user->id)
+                                    <span
+                                        class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400"
+                                        title="You cannot change your own role."
+                                    >
                                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <rect width="18" height="11" x="3" y="11" rx="2" />
                                             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -119,8 +122,9 @@
                                             onchange="this.form.submit()"
                                             class="field w-auto py-1.5 text-xs"
                                         >
-                                            <option value="user" @selected($user->role === \App\Identity\Entities\UserRole::User)>User</option>
-                                            <option value="admin" @selected($user->role === \App\Identity\Entities\UserRole::Admin)>Admin</option>
+                                            @foreach ($roles as $role)
+                                                <option value="{{ $role->value }}" @selected($user->role === $role)>{{ $role->label() }}</option>
+                                            @endforeach
                                         </select>
                                     </form>
                                 @endif

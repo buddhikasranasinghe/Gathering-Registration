@@ -17,18 +17,22 @@ final class UpdateUserRoleUseCase
     public function handle(UpdateUserRoleRequest $request): void
     {
         DB::transaction(function () use ($request): void {
+            $requestedBy = $request->requestedBy->newQuery()->lockForUpdate()->findOrFail($request->requestedBy->getKey());
             $user = $request->user->newQuery()->lockForUpdate()->findOrFail($request->user->getKey());
 
-            if (! $request->requestedBy->isSuperAdmin()) {
+            if (! $requestedBy->isSuperAdmin()) {
                 throw new UserRoleChangeNotAllowedException('Only the Super Admin can change user roles.');
             }
 
-            if ($user->isSuperAdmin()) {
-                throw new UserRoleChangeNotAllowedException('The Super Admin role is protected.');
+            if ($requestedBy->is($user)) {
+                throw new UserRoleChangeNotAllowedException('You cannot change your own role.');
             }
 
-            if (! in_array($request->role, [UserRole::User, UserRole::Admin], true)) {
-                throw new UserRoleChangeNotAllowedException('The Super Admin role cannot be assigned.');
+            if ($user->isSuperAdmin()
+                && $request->role !== UserRole::SuperAdmin
+                && $requestedBy->newQuery()->where('role', UserRole::SuperAdmin)->count() <= 1
+            ) {
+                throw new UserRoleChangeNotAllowedException('At least one Super Admin must remain.');
             }
 
             if ($request->role === UserRole::Admin && $user->batch_id === null) {
