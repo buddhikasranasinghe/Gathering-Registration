@@ -19,6 +19,7 @@ final class UserRoleManagementTest extends TestCase
     public function when_a_super_admin_changes_a_user_role_then_the_new_role_is_saved_and_synced(
         UserRole $currentRole,
         UserRole $newRole,
+        string $expectedRoleWithArticle,
     ): void {
         $superAdmin = User::factory()->superAdmin()->create();
         $user = User::factory()->for(Batch::factory())->create(['role' => $currentRole]);
@@ -28,7 +29,7 @@ final class UserRoleManagementTest extends TestCase
             ['role' => $newRole->value],
         );
 
-        $this->assertRoleWasUpdated($response, $user, $newRole);
+        $this->assertRoleWasUpdated($response, $user, $newRole, $expectedRoleWithArticle);
     }
 
     #[Test]
@@ -216,13 +217,13 @@ final class UserRoleManagementTest extends TestCase
     }
 
     /**
-     * @return array<string, array{UserRole, UserRole}>
+     * @return array<string, array{UserRole, UserRole, string}>
      */
     public static function roleTransitions(): array
     {
         return [
-            'promote a user' => [UserRole::User, UserRole::Admin],
-            'demote an admin' => [UserRole::Admin, UserRole::User],
+            'promote a user' => [UserRole::User, UserRole::Admin, 'an Admin'],
+            'demote an admin' => [UserRole::Admin, UserRole::User, 'a User'],
         ];
     }
 
@@ -237,9 +238,10 @@ final class UserRoleManagementTest extends TestCase
         ];
     }
 
-    private function assertRoleWasUpdated(TestResponse $response, User $user, UserRole $role): void
+    private function assertRoleWasUpdated(TestResponse $response, User $user, UserRole $role, string $expectedRoleWithArticle): void
     {
         $response->assertRedirect();
+        $response->assertSessionHas('status', $user->name.' is now '.$expectedRoleWithArticle.'.');
         $user->refresh();
 
         $this->assertSame($role, $user->role);

@@ -18,19 +18,12 @@
                     <h1 class="font-display text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
                         {{ $participant->name }}@if ($participant->call_name) <span class="font-normal text-slate-500 dark:text-slate-400">({{ $participant->call_name }})</span>@endif
                     </h1>
-
-                    <div class="mt-2.5 flex flex-wrap gap-1.5">
-                        @if ($participant->attending)
-                            <x-ui.badge tone="emerald">Attending</x-ui.badge>
-                        @else
-                            <x-ui.badge tone="rose">Not attending</x-ui.badge>
-                        @endif
-                        @if ($participant->import_key === null)
-                            <x-ui.badge tone="sky">Self-registered</x-ui.badge>
-                        @endif
-                    </div>
                 </div>
             </div>
+        </div>
+
+        <div class="glass mt-5 overflow-x-auto p-3 sm:p-4">
+            <x-ui.progress-stepper :status="$progressStatus" />
         </div>
     </div>
 

@@ -163,6 +163,16 @@
                 </select>
             </div>
 
+            <div>
+                <label for="status" class="label">Status</label>
+                <select id="status" name="status" class="field mt-1.5">
+                    <option value="">All statuses</option>
+                    @foreach (\App\Participation\Entities\ParticipantProgressStatus::cases() as $option)
+                        <option value="{{ $option->value }}" @selected($filters['status'] === $option)>{{ $option->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <a href="{{ route('participants.index') }}" class="link pb-2.5 text-sm">Reset</a>
         </form>
 
@@ -225,17 +235,10 @@
                             </td>
 
                             <td class="px-4 py-3 align-top">
-                                <div class="flex flex-wrap gap-1">
-                                    @if ($participant->attending)
-                                        <x-ui.badge tone="emerald">Attending</x-ui.badge>
-                                    @else
-                                        <x-ui.badge tone="rose">Not attending</x-ui.badge>
-                                    @endif
-
-                                    @if ($participant->import_key === null)
-                                        <x-ui.badge tone="sky">Self-registered</x-ui.badge>
-                                    @endif
-                                </div>
+                                @php($progressStatus = $progressStatuses[$participant->getKey()])
+                                <x-ui.badge :tone="$progressStatus->tone()" :data-participant-status="$progressStatus->value">
+                                    {{ $progressStatus->label() }}
+                                </x-ui.badge>
                             </td>
 
                             <td class="px-4 py-3 align-top text-right">

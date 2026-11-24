@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Participation\Services;
 
 use App\Participation\Entities\Participant;
+use App\Participation\Entities\ParticipantProgressStatus;
 use App\Participation\Entities\TicketStatus;
 
 final class TicketEligibilityService
@@ -19,7 +20,8 @@ final class TicketEligibilityService
      *     refund: float,
      *     attendees: array<int, array{name: string, relation: ?string}>,
      *     canGenerate: bool,
-     *     message: ?string
+     *     message: ?string,
+     *     hasActiveTicket: bool
      * }
      */
     public function assess(Participant $participant): array
@@ -32,9 +34,11 @@ final class TicketEligibilityService
         $remaining = max(0.0, $breakdown['total'] - $totalPaid);
         $refund = max(0.0, $totalPaid - $breakdown['total']);
         $attendees = $this->attendees($participant);
-        $hasActiveTicket = $participant->issuedTickets()
-            ->where('status', TicketStatus::Active)
-            ->exists();
+        $hasActiveTicket = $participant->relationLoaded('issuedTickets')
+            ? $participant->issuedTickets->contains(fn ($ticket): bool => $ticket->isActive())
+            : $participant->issuedTickets()
+                ->where('status', TicketStatus::Active)
+                ->exists();
 
         $message = match (true) {
             $attendees === [] => 'This participant is not attending, so a ticket cannot be generated.',
@@ -51,7 +55,21 @@ final class TicketEligibilityService
             'attendees' => $attendees,
             'canGenerate' => $message === null,
             'message' => $message,
+            'hasActiveTicket' => $hasActiveTicket,
         ];
+    }
+
+    public function progressStatus(Participant $participant): ParticipantProgressStatus
+    {
+        $assessment = $this->assess($participant);
+
+        return match (true) {
+            $assessment['hasActiveTicket'] => ParticipantProgressStatus::TicketIssued,
+            $assessment['remaining'] <= 0.0
+                && ($assessment['ticketPrice'] > 0.0 || $assessment['totalPaid'] > 0.0) => ParticipantProgressStatus::PaymentComplete,
+            $assessment['totalPaid'] > 0.0 => ParticipantProgressStatus::PaymentIncomplete,
+            default => ParticipantProgressStatus::NotPaid,
+        };
     }
 
     /**

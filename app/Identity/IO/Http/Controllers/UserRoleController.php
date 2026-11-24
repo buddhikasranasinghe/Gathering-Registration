@@ -20,16 +20,20 @@ class UserRoleController extends Controller
         User $user,
         UpdateUserRoleUseCase $updateUserRole,
     ): RedirectResponse {
+        $role = UserRole::from($request->string('role')->toString());
+
         try {
             $updateUserRole->handle(new UpdateUserRole(
                 requestedBy: $request->user(),
                 user: $user,
-                role: UserRole::from($request->string('role')->toString()),
+                role: $role,
             ));
         } catch (UserRoleChangeNotAllowedException $exception) {
             return back()->withErrors(['role' => $exception->getMessage()]);
         }
 
-        return back()->with('status', $user->name.' is now an '.$user->role->label().'.');
+        $roleWithArticle = $role === UserRole::Admin ? 'an Admin' : 'a User';
+
+        return back()->with('status', $user->name.' is now '.$roleWithArticle.'.');
     }
 }

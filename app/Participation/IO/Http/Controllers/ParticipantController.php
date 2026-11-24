@@ -10,6 +10,8 @@ use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantImportRun;
+use App\Participation\Entities\ParticipantProgressStatus;
+use App\Participation\Services\TicketEligibilityService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -17,6 +19,8 @@ use Illuminate\View\View;
 
 class ParticipantController extends Controller
 {
+    public function __construct(private TicketEligibilityService $ticketEligibility) {}
+
     /**
      * Show the participant roster and latest spreadsheet import results.
      */
@@ -31,8 +35,17 @@ class ParticipantController extends Controller
             ->latest('id')
             ->first();
 
+        $participants = $this->participants($filters, $user);
+
+        $progressStatuses = $participants->getCollection()
+            ->mapWithKeys(fn (Participant $participant): array => [
+                $participant->getKey() => $this->ticketEligibility->progressStatus($participant),
+            ])
+            ->all();
+
         return view('participants.index', [
-            'participants' => $this->participants($filters, $user),
+            'participants' => $participants,
+            'progressStatuses' => $progressStatuses,
             'filters' => $filters,
             'batches' => $this->batches($user),
             'latestRun' => $latestRun,
@@ -55,7 +68,7 @@ class ParticipantController extends Controller
     }
 
     /**
-     * @return array{search: string, batchId: ?int, attendance: ?bool}
+     * @return array{search: string, batchId: ?int, attendance: ?bool, status: ?ParticipantProgressStatus}
      */
     private function filters(Request $request): array
     {
@@ -67,11 +80,12 @@ class ParticipantController extends Controller
                 'not_attending' => false,
                 default => null,
             },
+            'status' => ParticipantProgressStatus::tryFrom($request->string('status')->toString()),
         ];
     }
 
     /**
-     * @param  array{search: string, batchId: ?int, attendance: ?bool}  $filters
+     * @param  array{search: string, batchId: ?int, attendance: ?bool, status: ?ParticipantProgressStatus}  $filters
      * @return LengthAwarePaginator<int, Participant>
      */
     private function participants(array $filters, User $user): LengthAwarePaginator
@@ -79,7 +93,9 @@ class ParticipantController extends Controller
         $query = $this->participantsFor($user)
             ->with([
                 'batch:id,name',
-                'relatedParticipants:id,primary_participant_id,name,relation',
+                'relatedParticipants:id,primary_participant_id,name,relation,attending',
+                'payments:id,participant_id,amount',
+                'issuedTickets:id,participant_id,status',
             ])
             ->whereNull('archived_at');
 
@@ -90,6 +106,8 @@ class ParticipantController extends Controller
         if ($filters['attendance'] !== null) {
             $query->where('attending', $filters['attendance']);
         }
+
+        $this->applyStatusFilter($query, $filters['status']);
 
         if ($filters['search'] !== '') {
             $search = '%'.$filters['search'].'%';
@@ -108,6 +126,29 @@ class ParticipantController extends Controller
             ->orderBy('id')
             ->paginate(25)
             ->withQueryString();
+    }
+
+    private function applyStatusFilter(Builder $query, ?ParticipantProgressStatus $status): void
+    {
+        if ($status === null) {
+            return;
+        }
+
+        $adultPrice = number_format((float) config('tickets.price_per_person'), 2, '.', '');
+        $childPrice = number_format((float) config('tickets.price_per_child'), 2, '.', '');
+
+        $activeTicket = "EXISTS (SELECT 1 FROM issued_tickets WHERE issued_tickets.participant_id = participants.id AND issued_tickets.status = 'active')";
+        $totalPaid = 'COALESCE((SELECT SUM(payments.amount) FROM payments WHERE payments.participant_id = participants.id), 0)';
+        $requiredAmount = "(CASE WHEN participants.attending = TRUE THEN {$adultPrice} ELSE 0 END) + COALESCE((SELECT SUM(CASE WHEN relations.relation = 'child' THEN {$childPrice} ELSE {$adultPrice} END) FROM participants AS relations WHERE relations.primary_participant_id = participants.id AND relations.attending = TRUE), 0)";
+
+        $condition = match ($status) {
+            ParticipantProgressStatus::TicketIssued => $activeTicket,
+            ParticipantProgressStatus::NotPaid => "NOT {$activeTicket} AND {$totalPaid} <= 0",
+            ParticipantProgressStatus::PaymentIncomplete => "NOT {$activeTicket} AND {$totalPaid} > 0 AND {$totalPaid} < {$requiredAmount}",
+            ParticipantProgressStatus::PaymentComplete => "NOT {$activeTicket} AND {$totalPaid} >= {$requiredAmount} AND ({$requiredAmount} > 0 OR {$totalPaid} > 0)",
+        };
+
+        $query->whereRaw($condition);
     }
 
     /**

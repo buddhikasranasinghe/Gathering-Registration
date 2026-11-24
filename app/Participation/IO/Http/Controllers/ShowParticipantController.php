@@ -55,6 +55,7 @@ class ShowParticipantController extends Controller
                 'canGenerate' => $assessment['canGenerate'],
                 'message' => $assessment['message'],
             ],
+            'progressStatus' => $ticketEligibility->progressStatus($participant),
             'hasIssuedTickets' => $participant->issuedTickets->isNotEmpty(),
             'canManage' => $user->role === UserRole::SuperAdmin || $user->role === UserRole::Admin,
             'activeTab' => in_array($activeTab, self::TABS, true) ? $activeTab : 'participant',

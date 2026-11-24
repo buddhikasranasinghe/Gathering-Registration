@@ -8,7 +8,9 @@ use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Participation\Entities\AttendanceChange;
 use App\Participation\Entities\Batch;
+use App\Participation\Entities\IssuedTicket;
 use App\Participation\Entities\Participant;
+use App\Participation\Entities\ParticipantProgressStatus;
 use App\Participation\Entities\ParticipantRelation;
 use App\Participation\Entities\Payment;
 use PHPUnit\Framework\Attributes\Test;
@@ -169,5 +171,116 @@ final class ParticipantShowTest extends TestCase
         $response = $this->get(route('participants.show', $participant));
 
         $response->assertRedirect(route('login'));
+    }
+
+    #[Test]
+    public function when_no_payment_is_recorded_then_the_progress_bar_shows_not_paid(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertViewHas('progressStatus', ParticipantProgressStatus::NotPaid);
+        $response->assertSee('data-participant-progress', false);
+        $response->assertSee('data-current-step="1"', false);
+        $response->assertSee('data-progress-step="not_paid" data-progress-state="current"', false);
+        $response->assertDontSee('data-progress-step="payment_incomplete"', false);
+        $response->assertSee('border-slate-300 bg-white/60 text-slate-500', false);
+        $response->assertDontSee('border-emerald-500 bg-emerald-500 text-white', false);
+        $response->assertDontSee('bg-violet-600', false);
+    }
+
+    #[Test]
+    public function when_a_partial_payment_is_recorded_then_the_progress_bar_still_shows_not_paid(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create();
+        Payment::factory()->for($participant)->create(['amount' => 1000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentIncomplete);
+        $response->assertSee('data-current-step="1"', false);
+        $response->assertSee('data-progress-step="not_paid" data-progress-state="current"', false);
+        $response->assertDontSee('data-progress-step="payment_incomplete"', false);
+        $response->assertDontSee('border-emerald-500 bg-emerald-500 text-white', false);
+    }
+
+    #[Test]
+    public function when_the_full_amount_is_paid_then_the_progress_bar_shows_payment_complete(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create();
+        Payment::factory()->for($participant)->create(['amount' => 4000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentComplete);
+        $response->assertSee('data-current-step="2"', false);
+        $response->assertSee('data-progress-step="not_paid" data-progress-state="complete"', false);
+        $response->assertSee('data-progress-step="payment_complete" data-progress-state="current"', false);
+        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="upcoming"', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
+    }
+
+    #[Test]
+    public function when_an_active_ticket_exists_then_the_progress_bar_shows_ticket_issued(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create();
+        Payment::factory()->for($participant)->create(['amount' => 4000]);
+        IssuedTicket::factory()->for($participant)->create();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertViewHas('progressStatus', ParticipantProgressStatus::TicketIssued);
+        $response->assertSee('data-current-step="3"', false);
+        $response->assertSee('data-progress-step="payment_complete" data-progress-state="complete"', false);
+        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="current"', false);
+        $response->assertSee('border-slate-300 bg-white/60 text-slate-500', false);
+        $this->assertSame(2, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
+    }
+
+    #[Test]
+    public function when_only_a_deactivated_ticket_exists_then_the_progress_bar_shows_payment_complete(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create();
+        Payment::factory()->for($participant)->create(['amount' => 4000]);
+        IssuedTicket::factory()->for($participant)->deactivated()->create();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentComplete);
+        $response->assertSee('data-current-step="2"', false);
+    }
+
+    #[Test]
+    public function when_the_details_page_is_opened_then_header_status_badges_are_not_shown(): void
+    {
+        $participant = Participant::factory()->create();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertDontSee('Self-registered');
+        $response->assertSee('Attendance');
     }
 }

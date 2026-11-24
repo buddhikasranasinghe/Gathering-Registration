@@ -8,8 +8,12 @@ use App\Foundation\Tests\TestCase;
 use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Batch;
+use App\Participation\Entities\IssuedTicket;
 use App\Participation\Entities\Participant;
+use App\Participation\Entities\ParticipantProgressStatus;
 use App\Participation\Entities\ParticipantRelation;
+use App\Participation\Entities\Payment;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -180,6 +184,188 @@ final class ParticipantsPageTest extends TestCase
         $response->assertDontSee('Import spreadsheet');
         $response->assertDontSee('Spreadsheet import');
         $response->assertViewHas('canImport', false);
+    }
+
+    #[Test]
+    public function when_no_payment_is_recorded_then_the_roster_shows_not_paid_status(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create(['name' => 'Unpaid Person']);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'progressStatuses',
+            fn (array $statuses): bool => $statuses[$participant->getKey()] === ParticipantProgressStatus::NotPaid,
+        );
+        $response->assertSee('data-participant-status="not_paid"', false);
+        $response->assertDontSee('Self-registered');
+    }
+
+    #[Test]
+    public function when_a_partial_payment_is_recorded_then_the_roster_shows_payment_incomplete_status(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create(['name' => 'Partial Person']);
+        Payment::factory()->for($participant)->create(['amount' => 1000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'progressStatuses',
+            fn (array $statuses): bool => $statuses[$participant->getKey()] === ParticipantProgressStatus::PaymentIncomplete,
+        );
+        $response->assertSee('data-participant-status="payment_incomplete"', false);
+        $response->assertSee('Payment Incomplete');
+    }
+
+    #[Test]
+    public function when_the_full_amount_is_paid_then_the_roster_shows_payment_complete_status(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create(['name' => 'Paid Person']);
+        Payment::factory()->for($participant)->create(['amount' => 4000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'progressStatuses',
+            fn (array $statuses): bool => $statuses[$participant->getKey()] === ParticipantProgressStatus::PaymentComplete,
+        );
+        $response->assertSee('data-participant-status="payment_complete"', false);
+        $response->assertSee('Payment Complete');
+    }
+
+    #[Test]
+    public function when_an_active_ticket_exists_then_the_roster_shows_ticket_issued_status(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        $participant = Participant::factory()->create(['name' => 'Ticketed Person']);
+        Payment::factory()->for($participant)->create(['amount' => 4000]);
+        IssuedTicket::factory()->for($participant)->create();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'progressStatuses',
+            fn (array $statuses): bool => $statuses[$participant->getKey()] === ParticipantProgressStatus::TicketIssued,
+        );
+        $response->assertSee('data-participant-status="ticket_issued"', false);
+        $response->assertSee('Ticket Issued');
+    }
+
+    #[Test]
+    public function the_roster_can_be_filtered_by_not_paid_status(): void
+    {
+        $this->seedParticipantsWithProgressStatuses();
+
+        $this->assertStatusFilterReturns('not_paid', ParticipantProgressStatus::NotPaid, ['Status Not Paid']);
+    }
+
+    #[Test]
+    public function the_roster_can_be_filtered_by_payment_incomplete_status(): void
+    {
+        $this->seedParticipantsWithProgressStatuses();
+
+        $this->assertStatusFilterReturns('payment_incomplete', ParticipantProgressStatus::PaymentIncomplete, ['Status Incomplete']);
+    }
+
+    #[Test]
+    public function the_roster_can_be_filtered_by_payment_complete_status(): void
+    {
+        $this->seedParticipantsWithProgressStatuses();
+
+        $this->assertStatusFilterReturns('payment_complete', ParticipantProgressStatus::PaymentComplete, ['Status Complete', 'Status Deactivated']);
+    }
+
+    #[Test]
+    public function the_roster_can_be_filtered_by_ticket_issued_status(): void
+    {
+        $this->seedParticipantsWithProgressStatuses();
+
+        $this->assertStatusFilterReturns('ticket_issued', ParticipantProgressStatus::TicketIssued, ['Status Issued']);
+    }
+
+    #[Test]
+    public function an_unknown_status_filter_value_is_ignored(): void
+    {
+        $this->seedParticipantsWithProgressStatuses();
+
+        $this->assertStatusFilterReturns('unknown', null, [
+            'Status Complete',
+            'Status Deactivated',
+            'Status Incomplete',
+            'Status Issued',
+            'Status Not Paid',
+        ]);
+    }
+
+    #[Test]
+    public function the_status_filter_uses_boolean_aware_attendance_comparisons(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+        Participant::factory()->create(['name' => 'Status Not Paid']);
+
+        DB::enableQueryLog();
+
+        $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['status' => 'payment_incomplete']))
+            ->assertOk();
+
+        $queries = collect(DB::getQueryLog())->pluck('query')->implode(' ');
+
+        $this->assertStringContainsString('attending = TRUE', $queries);
+        $this->assertStringNotContainsString('attending = 1', $queries);
+    }
+
+    /**
+     * @param  list<string>  $expectedNames
+     */
+    private function assertStatusFilterReturns(string $value, ?ParticipantProgressStatus $expectedStatus, array $expectedNames): void
+    {
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['status' => $value]));
+
+        $response->assertOk();
+        $response->assertViewHas('filters.status', $expectedStatus);
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === count($expectedNames)
+                && $participants->getCollection()->pluck('name')->all() === $expectedNames,
+        );
+    }
+
+    private function seedParticipantsWithProgressStatuses(): void
+    {
+        config()->set('tickets.price_per_person', 4000);
+
+        Participant::factory()->create(['name' => 'Status Not Paid']);
+
+        $incomplete = Participant::factory()->create(['name' => 'Status Incomplete']);
+        Payment::factory()->for($incomplete)->create(['amount' => 1000]);
+
+        $complete = Participant::factory()->create(['name' => 'Status Complete']);
+        Payment::factory()->for($complete)->create(['amount' => 4000]);
+
+        $issued = Participant::factory()->create(['name' => 'Status Issued']);
+        Payment::factory()->for($issued)->create(['amount' => 4000]);
+        IssuedTicket::factory()->for($issued)->create();
+
+        $deactivated = Participant::factory()->create(['name' => 'Status Deactivated']);
+        Payment::factory()->for($deactivated)->create(['amount' => 4000]);
+        IssuedTicket::factory()->for($deactivated)->deactivated()->create();
     }
 
     private function assertRosterIsFiltered(TestResponse $response): void
