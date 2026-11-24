@@ -11,7 +11,6 @@
         <x-ui.button :href="route('batches.create')">Add batch</x-ui.button>
     </div>
 
-    <x-ui.alerts />
 
     <section class="glass overflow-hidden">
         <div class="overflow-x-auto">

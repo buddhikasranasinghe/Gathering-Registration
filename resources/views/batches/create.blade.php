@@ -5,7 +5,6 @@
         <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Create a display name and the value used by Excel imports.</p>
     </div>
 
-    <x-ui.alerts />
 
     <x-ui.glass-card padding="p-6 sm:p-8" class="max-w-2xl">
         <form method="POST" action="{{ route('batches.store') }}" class="space-y-5">

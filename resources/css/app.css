@@ -20,6 +20,7 @@
     --animate-drift-c: drift-c 38s ease-in-out infinite;
     --animate-rise: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
     --animate-pulse-glow: pulse-glow 3.2s ease-in-out infinite;
+    --animate-toast-out: toast-out 0.18s ease-in forwards;
 }
 
 @keyframes drift-a {
@@ -70,6 +71,13 @@
     }
     50% {
         filter: drop-shadow(0 0 34px rgba(217, 70, 239, 0.55));
+    }
+}
+
+@keyframes toast-out {
+    to {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
     }
 }
 
@@ -202,6 +210,10 @@
         border-bottom-color: rgba(255, 255, 255, 0.08);
         background-color: rgba(9, 7, 22, 0.6);
         box-shadow: 0 12px 40px -24px rgba(0, 0, 0, 0.9);
+    }
+
+    .toast-exit {
+        animation: var(--animate-toast-out);
     }
 
     /* ---------- Typography helpers ---------- */
@@ -567,7 +579,8 @@
     @media (prefers-reduced-motion: reduce) {
         .orb,
         .animate-rise,
-        .animate-pulse-glow {
+        .animate-pulse-glow,
+        .toast-exit {
             animation: none !important;
         }
 

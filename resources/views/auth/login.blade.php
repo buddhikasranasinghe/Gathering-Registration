@@ -6,7 +6,6 @@
         </p>
     </div>
 
-    <x-ui.alerts />
 
     <form method="POST" action="{{ route('login.store') }}" class="space-y-5">
         @csrf

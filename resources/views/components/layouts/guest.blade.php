@@ -39,6 +39,8 @@
         </svg>
     </button>
 
+    <x-ui.alerts placement="guest" />
+
     <main class="w-full max-w-md animate-rise">
         <div class="mb-8 text-center">
             <a href="{{ route('home') }}" class="inline-flex flex-col items-center gap-3">

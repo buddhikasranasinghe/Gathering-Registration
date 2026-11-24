@@ -11,7 +11,6 @@
         <a href="{{ route('home') }}" class="link text-sm">Back to home</a>
     </div>
 
-    <x-ui.alerts />
 
     <section class="glass overflow-hidden">
         <form

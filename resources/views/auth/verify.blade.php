@@ -8,7 +8,6 @@
         </p>
     </div>
 
-    <x-ui.alerts />
 
     <form method="POST" action="{{ route('verify.store') }}" class="space-y-5">
         @csrf

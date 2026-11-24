@@ -11,7 +11,6 @@
         <a href="{{ route('home') }}" class="link text-sm">Back to home</a>
     </div>
 
-    <x-ui.alerts />
 
     @if (! $hasAssignedBatch)
         <div class="mb-6 flex items-start gap-3 rounded-xl border border-amber-400/35 bg-amber-400/15 px-4 py-3 text-sm font-medium text-amber-900 backdrop-blur dark:text-amber-100">

@@ -27,7 +27,6 @@
         </div>
     </div>
 
-    <x-ui.alerts />
 
     <div data-tabs>
         <div class="glass overflow-hidden">

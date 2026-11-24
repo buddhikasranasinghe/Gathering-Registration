@@ -1,3 +1,5 @@
+import './toasts.js';
+
 const THEME_KEY = 'theme';
 
 const applyTheme = (isDark) => {
