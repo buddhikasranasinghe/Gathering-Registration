@@ -9,6 +9,7 @@ use App\Identity\Entities\User;
 use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
+use App\Participation\Entities\ParticipantRelation;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -39,6 +40,51 @@ final class ParticipantsPageTest extends TestCase
     }
 
     #[Test]
+    public function when_the_attending_filter_is_applied_then_only_attending_participants_are_listed(): void
+    {
+        Participant::factory()->create(['name' => 'Attendee Alpha', 'attending' => true]);
+        Participant::factory()->create(['name' => 'Absentee Beta', 'attending' => false]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['attendance' => 'attending']));
+
+        $response->assertOk();
+        $response->assertSee('Attendee Alpha');
+        $response->assertDontSee('Absentee Beta');
+    }
+
+    #[Test]
+    public function when_the_not_attending_filter_is_applied_then_only_those_participants_are_listed(): void
+    {
+        Participant::factory()->create(['name' => 'Attendee Alpha', 'attending' => true]);
+        Participant::factory()->create(['name' => 'Absentee Beta', 'attending' => false]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['attendance' => 'not_attending']));
+
+        $response->assertOk();
+        $response->assertSee('Absentee Beta');
+        $response->assertDontSee('Attendee Alpha');
+        $response->assertSee('Not attending');
+    }
+
+    #[Test]
+    public function when_the_roster_is_shown_then_relations_are_listed_in_the_relations_column(): void
+    {
+        $participant = Participant::factory()->create(['name' => 'Primary Person']);
+        Participant::factory()->relationTo($participant, ParticipantRelation::Spouse)->create(['name' => 'Ruwani Perera']);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertSee('Relations');
+        $response->assertSee('Ruwani Perera (spouse)', false);
+        $response->assertDontSee('Spouse attending');
+        $response->assertViewHas('stats', ['active' => 2, 'relations' => 1]);
+    }
+
+    #[Test]
     public function when_an_admin_views_the_page_then_the_import_form_is_hidden(): void
     {
         $response = $this->actingAs(User::factory()->admin()->create())
@@ -60,7 +106,7 @@ final class ParticipantsPageTest extends TestCase
         $response->assertOk();
         $response->assertSee($member->name);
         $response->assertDontSee('Other Batch Member');
-        $response->assertViewHas('stats', ['active' => 1, 'spouses' => 0]);
+        $response->assertViewHas('stats', ['active' => 1, 'relations' => 0]);
     }
 
     #[Test]

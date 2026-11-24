@@ -20,8 +20,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'batch_id',
     'phone',
     'nic',
-    'spouse_attending',
-    'spouse_name',
+    'attending',
+    'attendance_manually_set',
+    'primary_participant_id',
+    'relation',
     'import_key',
     'last_imported_at',
     'archived_at',
@@ -42,7 +44,9 @@ class Participant extends Model
     protected function casts(): array
     {
         return [
-            'spouse_attending' => 'boolean',
+            'attending' => 'boolean',
+            'attendance_manually_set' => 'boolean',
+            'relation' => ParticipantRelation::class,
             'last_imported_at' => 'datetime',
             'archived_at' => 'datetime',
         ];
@@ -69,6 +73,36 @@ class Participant extends Model
     }
 
     /**
+     * Recorded attendance changes for this participant.
+     *
+     * @return HasMany<AttendanceChange, $this>
+     */
+    public function attendanceChanges(): HasMany
+    {
+        return $this->hasMany(AttendanceChange::class);
+    }
+
+    /**
+     * The participant this relation is attending with.
+     *
+     * @return BelongsTo<Participant, $this>
+     */
+    public function primaryParticipant(): BelongsTo
+    {
+        return $this->belongsTo(Participant::class, 'primary_participant_id');
+    }
+
+    /**
+     * Additional people attending with this participant.
+     *
+     * @return HasMany<Participant, $this>
+     */
+    public function relatedParticipants(): HasMany
+    {
+        return $this->hasMany(Participant::class, 'primary_participant_id');
+    }
+
+    /**
      * Payments recorded for this participant.
      *
      * @return HasMany<Payment, $this>
@@ -91,5 +125,17 @@ class Participant extends Model
     public function isArchived(): bool
     {
         return $this->archived_at !== null;
+    }
+
+    /**
+     * The number of people this ticket covers.
+     */
+    public function attendingCount(): int
+    {
+        $attendingRelations = $this->relationLoaded('relatedParticipants')
+            ? $this->relatedParticipants->where('attending', true)->count()
+            : $this->relatedParticipants()->where('attending', true)->count();
+
+        return ($this->attending ? 1 : 0) + $attendingRelations;
     }
 }

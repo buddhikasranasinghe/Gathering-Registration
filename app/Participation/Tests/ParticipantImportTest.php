@@ -11,6 +11,7 @@ use App\Participation\Entities\Batch;
 use App\Participation\Entities\ImportStatus;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantImportRun;
+use App\Participation\Entities\ParticipantRelation;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -31,6 +32,78 @@ final class ParticipantImportTest extends TestCase
         );
 
         $this->assertCsvWasImported($response, $user, $batch);
+    }
+
+    #[Test]
+    public function when_an_imported_row_matches_a_participant_with_manual_attendance_then_attendance_is_preserved(): void
+    {
+        $this->batchForImport();
+        $participant = Participant::factory()->imported()->create([
+            'attending' => false,
+            'attendance_manually_set' => true,
+        ]);
+        $relation = Participant::factory()->relationTo($participant, ParticipantRelation::Spouse)->create([
+            'name' => 'R.M.T Sooryamali',
+            'attending' => false,
+            'attendance_manually_set' => true,
+        ]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
+            route('participants.import'),
+            ['file' => $this->csvUpload()],
+        );
+
+        $response->assertRedirect();
+        $participant->refresh();
+        $relation->refresh();
+
+        $this->assertFalse($participant->attending);
+        $this->assertFalse($relation->attending);
+        $this->assertSame('R.M.T Sooryamali', $relation->name);
+    }
+
+    #[Test]
+    public function when_an_imported_spouse_attendance_changes_then_the_relation_is_updated(): void
+    {
+        $this->batchForImport();
+        $participant = Participant::factory()->imported()->create([
+            'phone' => '0773370555',
+            'attending' => true,
+        ]);
+        $relation = Participant::factory()->relationTo($participant, ParticipantRelation::Spouse)->create([
+            'name' => 'R.M.T Sooryamali',
+            'attending' => false,
+        ]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
+            route('participants.import'),
+            ['file' => $this->csvUpload()],
+        );
+
+        $response->assertRedirect();
+        $this->assertTrue($relation->refresh()->attending);
+    }
+
+    #[Test]
+    public function when_an_imported_row_has_no_spouse_attendance_then_the_partner_is_not_attending(): void
+    {
+        $this->batchForImport();
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())->post(
+            route('participants.import'),
+            ['file' => UploadedFile::fake()->createWithContent('participants.csv', implode("\n", [
+                'Timestamp,Name,Call name,Batch,Phone,Spouse attending,,,,NIC,Spouse name,',
+                ',Partner Without Flag,,EXCEL BATCH 37,0773370556,No,,,,933040187V,Ruwani Perera,',
+            ]))],
+        );
+
+        $response->assertRedirect();
+
+        $participant = Participant::query()->where('name', 'Partner Without Flag')->sole();
+        $relation = $participant->relatedParticipants()->sole();
+
+        $this->assertSame('Ruwani Perera', $relation->name);
+        $this->assertFalse($relation->attending);
     }
 
     #[Test]
@@ -184,7 +257,7 @@ final class ParticipantImportTest extends TestCase
         $response->assertRedirect();
 
         $run = ParticipantImportRun::query()->sole();
-        $participant = Participant::query()->sole();
+        $participant = Participant::query()->whereNull('primary_participant_id')->sole();
 
         $this->assertSame(ImportStatus::Completed, $run->status);
         $this->assertSame('participants.csv', $run->source_name);
@@ -193,6 +266,12 @@ final class ParticipantImportTest extends TestCase
         $this->assertSame('Chathuranga Ranasingh', $participant->name);
         $this->assertSame('nic:933040186V', $participant->import_key);
         $this->assertSame($batch->getKey(), $participant->batch_id);
+
+        $relation = $participant->relatedParticipants()->sole();
+
+        $this->assertSame('R.M.T Sooryamali', $relation->name);
+        $this->assertSame(ParticipantRelation::Spouse, $relation->relation);
+        $this->assertTrue($relation->attending);
     }
 
     private function assertExcelWasImported($response): void
@@ -201,7 +280,7 @@ final class ParticipantImportTest extends TestCase
 
         $this->assertSame(
             'Ishara Weerasinghe',
-            Participant::query()->sole()->name,
+            Participant::query()->whereNull('primary_participant_id')->sole()->name,
         );
     }
 
@@ -218,7 +297,7 @@ final class ParticipantImportTest extends TestCase
     {
         $response->assertRedirect();
 
-        $this->assertSame(2, Participant::query()->count());
+        $this->assertSame(2, Participant::query()->whereNull('primary_participant_id')->count());
         $this->assertSame(1, Participant::query()->whereNotNull('import_key')->count());
     }
 

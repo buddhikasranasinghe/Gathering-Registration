@@ -7,6 +7,7 @@ namespace Database\Factories;
 use App\Identity\Entities\User;
 use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
+use App\Participation\Entities\ParticipantRelation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -28,8 +29,10 @@ class ParticipantFactory extends Factory
             'batch_id' => null,
             'phone' => null,
             'nic' => null,
-            'spouse_attending' => null,
-            'spouse_name' => null,
+            'attending' => true,
+            'attendance_manually_set' => false,
+            'primary_participant_id' => null,
+            'relation' => null,
             'import_key' => null,
             'last_imported_at' => null,
             'archived_at' => null,
@@ -49,6 +52,19 @@ class ParticipantFactory extends Factory
             'nic' => '933040186V',
             'import_key' => 'nic:933040186V',
             'last_imported_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that this participant is a relation attending with another participant.
+     */
+    public function relationTo(Participant $participant, ParticipantRelation $relation): static
+    {
+        return $this->state(fn (): array => [
+            'primary_participant_id' => $participant->getKey(),
+            'batch_id' => $participant->batch_id,
+            'attending' => true,
+            'relation' => $relation,
         ]);
     }
 

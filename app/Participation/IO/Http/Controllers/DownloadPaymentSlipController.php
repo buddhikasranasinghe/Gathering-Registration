@@ -8,12 +8,13 @@ use App\Foundation\IO\Http\Controllers\Controller;
 use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\Payment;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\Storage;
 
 class DownloadPaymentSlipController extends Controller
 {
-    public function __invoke(Request $request, Participant $participant, Payment $payment): StreamedResponse
+    public function __invoke(Request $request, Participant $participant, Payment $payment): RedirectResponse
     {
         $user = $request->user();
 
@@ -25,6 +26,15 @@ class DownloadPaymentSlipController extends Controller
             abort(404);
         }
 
-        return response()->download(storage_path('app/private/'.$payment->slip_path), basename($payment->slip_path));
+        $options = [];
+
+        if ($request->boolean('download')) {
+            $filename = str_replace(['"', "\r", "\n"], '', basename($payment->slip_path));
+            $options['ResponseContentDisposition'] = 'attachment; filename="'.$filename.'"';
+        }
+
+        return redirect()->away(
+            Storage::disk()->temporaryUrl($payment->slip_path, now()->addMinutes(10), $options)
+        );
     }
 }

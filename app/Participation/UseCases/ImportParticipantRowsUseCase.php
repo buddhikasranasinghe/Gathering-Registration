@@ -8,6 +8,7 @@ use App\Identity\Entities\User;
 use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantImportRun;
+use App\Participation\Entities\ParticipantRelation;
 use App\Participation\Services\ParticipantImportRow;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -90,7 +91,7 @@ final class ImportParticipantRowsUseCase
      *     call_name: ?string,
      *     phone: ?string,
      *     nic: ?string,
-     *     spouse_attending: ?bool,
+     *     spouse_attending: bool,
      *     spouse_name: ?string,
      *     import_key: string,
      *     batch_id: ?int
@@ -99,6 +100,10 @@ final class ImportParticipantRowsUseCase
      */
     private function upsert(array $attributes, \DateTimeInterface $importedAt): string
     {
+        $spouseName = $attributes['spouse_name'];
+        $spouseAttending = $attributes['spouse_attending'];
+        unset($attributes['spouse_name'], $attributes['spouse_attending']);
+
         $participant = $this->findExisting($attributes);
 
         if ($participant === null) {
@@ -108,6 +113,7 @@ final class ImportParticipantRowsUseCase
             ]);
 
             $this->syncUserBatch($participant);
+            $this->syncSpouseRelation($participant, $spouseName, $spouseAttending, $importedAt);
 
             return 'added';
         }
@@ -123,8 +129,54 @@ final class ImportParticipantRowsUseCase
         $participant->last_imported_at = $importedAt;
         $participant->save();
         $this->syncUserBatch($participant);
+        $this->syncSpouseRelation($participant, $spouseName, $spouseAttending, $importedAt);
 
         return $changed ? 'updated' : 'unchanged';
+    }
+
+    private function syncSpouseRelation(
+        Participant $participant,
+        ?string $spouseName,
+        bool $spouseAttending,
+        \DateTimeInterface $importedAt,
+    ): void {
+        if ($spouseName === null) {
+            return;
+        }
+
+        $relation = $participant->relatedParticipants()
+            ->where('relation', ParticipantRelation::Spouse->value)
+            ->where('name', $spouseName)
+            ->first()
+            ?? $participant->relatedParticipants()
+                ->where('relation', ParticipantRelation::Spouse->value)
+                ->where('attendance_manually_set', false)
+                ->orderBy('id')
+                ->first();
+
+        if ($relation === null) {
+            $participant->relatedParticipants()->create([
+                'name' => $spouseName,
+                'batch_id' => $participant->batch_id,
+                'attending' => $spouseAttending,
+                'attendance_manually_set' => false,
+                'relation' => ParticipantRelation::Spouse,
+                'last_imported_at' => $importedAt,
+            ]);
+
+            return;
+        }
+
+        if ($relation->attendance_manually_set) {
+            return;
+        }
+
+        $relation->fill([
+            'name' => $spouseName,
+            'batch_id' => $participant->batch_id,
+            'attending' => $spouseAttending,
+            'last_imported_at' => $importedAt,
+        ])->save();
     }
 
     private function syncUserBatch(Participant $participant): void

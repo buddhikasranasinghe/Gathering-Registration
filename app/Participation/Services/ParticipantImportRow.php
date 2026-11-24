@@ -16,7 +16,7 @@ final class ParticipantImportRow
      *     batch_mapper_name: ?string,
      *     phone: ?string,
      *     nic: ?string,
-     *     spouse_attending: ?bool,
+     *     spouse_attending: bool,
      *     spouse_name: ?string,
      *     import_key: string
      * }  $attributes
@@ -68,7 +68,7 @@ final class ParticipantImportRow
      *     batch_mapper_name: ?string,
      *     phone: ?string,
      *     nic: ?string,
-     *     spouse_attending: ?bool,
+     *     spouse_attending: bool,
      *     spouse_name: ?string,
      *     import_key: string
      * }
@@ -92,13 +92,9 @@ final class ParticipantImportRow
         return $value === null ? null : Batch::normalizeExcelMapperName($value);
     }
 
-    private static function yesNo(string $value): ?bool
+    private static function yesNo(string $value): bool
     {
-        return match (Str::lower(Str::squish($value))) {
-            'yes' => true,
-            'no' => false,
-            default => null,
-        };
+        return Str::lower(Str::squish($value)) === 'yes';
     }
 
     private static function normalizePhone(string $value): ?string

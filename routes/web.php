@@ -10,6 +10,8 @@ use App\Identity\IO\Http\Controllers\HomeController;
 use App\Identity\IO\Http\Controllers\UserController;
 use App\Identity\IO\Http\Controllers\UserRoleController;
 use App\Participation\IO\Http\Controllers\BatchController;
+use App\Participation\IO\Http\Controllers\DeletePaymentController;
+use App\Participation\IO\Http\Controllers\DeleteRelationController;
 use App\Participation\IO\Http\Controllers\DownloadIssuedTicketController;
 use App\Participation\IO\Http\Controllers\DownloadPaymentSlipController;
 use App\Participation\IO\Http\Controllers\IssueTicketController;
@@ -17,6 +19,11 @@ use App\Participation\IO\Http\Controllers\ParticipantController;
 use App\Participation\IO\Http\Controllers\ParticipantImportController;
 use App\Participation\IO\Http\Controllers\RecordPaymentController;
 use App\Participation\IO\Http\Controllers\ShowParticipantController;
+use App\Participation\IO\Http\Controllers\StoreRelationController;
+use App\Participation\IO\Http\Controllers\StreamPaymentSlipPreviewController;
+use App\Participation\IO\Http\Controllers\UpdateAttendanceController;
+use App\Participation\IO\Http\Controllers\UpdatePaymentController;
+use App\Participation\IO\Http\Controllers\UpdateRelationAttendanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/home');
@@ -49,9 +56,16 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
     Route::get('/participants', ParticipantController::class)->name('participants.index');
     Route::get('/participants/{participant}', ShowParticipantController::class)->name('participants.show');
+    Route::post('/participants/{participant}/attendance', UpdateAttendanceController::class)->name('participants.attendance.update');
+    Route::post('/participants/{participant}/relations', StoreRelationController::class)->name('participants.relations.store');
+    Route::post('/participants/{participant}/relations/{relation}/attendance', UpdateRelationAttendanceController::class)->name('participants.relations.attendance.update');
+    Route::delete('/participants/{participant}/relations/{relation}', DeleteRelationController::class)->name('participants.relations.destroy');
     Route::post('/participants/{participant}/payments', RecordPaymentController::class)->name('participants.payments.store');
+    Route::patch('/participants/{participant}/payments/{payment}', UpdatePaymentController::class)->name('participants.payments.update');
+    Route::delete('/participants/{participant}/payments/{payment}', DeletePaymentController::class)->name('participants.payments.destroy');
     Route::post('/participants/{participant}/tickets', IssueTicketController::class)->name('participants.tickets.store');
     Route::get('/participants/{participant}/payments/{payment}/slip', DownloadPaymentSlipController::class)->name('participants.payments.slip');
+    Route::get('/participants/{participant}/payments/{payment}/slip/preview', StreamPaymentSlipPreviewController::class)->name('participants.payments.slip.preview');
     Route::get('/participants/{participant}/tickets/{ticket}/download', DownloadIssuedTicketController::class)->name('participants.tickets.download');
 });
 

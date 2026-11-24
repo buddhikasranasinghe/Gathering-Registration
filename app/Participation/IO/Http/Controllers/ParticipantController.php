@@ -43,9 +43,10 @@ class ParticipantController extends Controller
                 ->get(),
             'stats' => [
                 'active' => $this->participantsFor($user)->whereNull('archived_at')->count(),
-                'spouses' => $this->participantsFor($user)
+                'relations' => $this->participantsFor($user)
                     ->whereNull('archived_at')
-                    ->where('spouse_attending', true)
+                    ->whereNotNull('primary_participant_id')
+                    ->where('attending', true)
                     ->count(),
             ],
             'canImport' => $user->role === UserRole::SuperAdmin,
@@ -54,28 +55,40 @@ class ParticipantController extends Controller
     }
 
     /**
-     * @return array{search: string, batchId: ?int}
+     * @return array{search: string, batchId: ?int, attendance: ?bool}
      */
     private function filters(Request $request): array
     {
         return [
             'search' => trim((string) $request->query('search', '')),
             'batchId' => $request->integer('batch_id') ?: null,
+            'attendance' => match ($request->string('attendance')->toString()) {
+                'attending' => true,
+                'not_attending' => false,
+                default => null,
+            },
         ];
     }
 
     /**
-     * @param  array{search: string, batchId: ?int}  $filters
+     * @param  array{search: string, batchId: ?int, attendance: ?bool}  $filters
      * @return LengthAwarePaginator<int, Participant>
      */
     private function participants(array $filters, User $user): LengthAwarePaginator
     {
         $query = $this->participantsFor($user)
-            ->with('batch:id,name')
+            ->with([
+                'batch:id,name',
+                'relatedParticipants:id,primary_participant_id,name,relation',
+            ])
             ->whereNull('archived_at');
 
         if ($user->role === UserRole::SuperAdmin && $filters['batchId'] !== null) {
             $query->where('batch_id', $filters['batchId']);
+        }
+
+        if ($filters['attendance'] !== null) {
+            $query->where('attending', $filters['attendance']);
         }
 
         if ($filters['search'] !== '') {

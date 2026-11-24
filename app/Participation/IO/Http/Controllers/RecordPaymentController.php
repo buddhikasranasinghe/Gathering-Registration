@@ -20,6 +20,7 @@ class RecordPaymentController extends Controller
         Participant $participant,
         RecordPaymentUseCase $recordPayment,
     ): RedirectResponse {
+        /** @var User $user */
         $user = $request->user();
 
         $this->authorizeAccess($user, $participant);
@@ -30,7 +31,6 @@ class RecordPaymentController extends Controller
             amount: (float) $request->input('amount'),
             method: $request->string('method')->toString(),
             paidAt: $request->date('paid_at'),
-            note: $request->filled('note') ? $request->string('note')->toString() : null,
             slip: $request->file('slip'),
         ));
 

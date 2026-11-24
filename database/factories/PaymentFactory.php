@@ -23,10 +23,12 @@ class PaymentFactory extends Factory
             'participant_id' => Participant::factory(),
             'amount' => fake()->randomFloat(2, 100, 5000),
             'method' => PaymentMethod::Cash,
-            'paid_at' => now(),
+            'paid_at' => now()->toDateString(),
             'slip_path' => null,
-            'note' => null,
             'recorded_by' => User::factory(),
+            'recorded_by_name' => fake()->name(),
+            'updated_by' => null,
+            'updated_by_name' => null,
         ];
     }
 }

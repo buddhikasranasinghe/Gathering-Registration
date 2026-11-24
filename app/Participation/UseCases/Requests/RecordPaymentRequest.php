@@ -16,7 +16,6 @@ final readonly class RecordPaymentRequest
         public float $amount,
         public string $method,
         public \DateTimeInterface $paidAt,
-        public ?string $note,
         public ?UploadedFile $slip,
     ) {}
 }

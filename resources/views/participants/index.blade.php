@@ -25,7 +25,7 @@
 
     <div class="mb-6 grid gap-4 sm:grid-cols-2">
         <x-ui.stat-card label="Participants" :value="$stats['active']" tone="violet" hint="On the guest list" />
-        <x-ui.stat-card label="Spouses attending" :value="$stats['spouses']" tone="amber" hint="Plus ones joining in" />
+        <x-ui.stat-card label="Relations attending" :value="$stats['relations']" tone="amber" hint="Guests joining in" />
     </div>
 
     @if ($canImport)
@@ -154,6 +154,15 @@
                 </div>
             @endif
 
+            <div>
+                <label for="attendance" class="label">Attendance</label>
+                <select id="attendance" name="attendance" class="field mt-1.5">
+                    <option value="">All attendance</option>
+                    <option value="attending" @selected($filters['attendance'] === true)>Attending</option>
+                    <option value="not_attending" @selected($filters['attendance'] === false)>Not attending</option>
+                </select>
+            </div>
+
             <a href="{{ route('participants.index') }}" class="link pb-2.5 text-sm">Reset</a>
         </form>
 
@@ -164,7 +173,7 @@
                         <th scope="col" class="px-4 py-3">Participant</th>
                         <th scope="col" class="hidden px-4 py-3 sm:table-cell">Batch</th>
                         <th scope="col" class="hidden px-4 py-3 md:table-cell">Phone</th>
-                        <th scope="col" class="hidden px-4 py-3 md:table-cell">Spouse</th>
+                        <th scope="col" class="px-4 py-3">Relations</th>
                         <th scope="col" class="px-4 py-3">Status</th>
                         <th scope="col" class="px-4 py-3"><span class="sr-only">Actions</span></th>
                     </tr>
@@ -207,22 +216,21 @@
 
                             <td class="hidden px-4 py-3 align-top text-slate-600 dark:text-slate-300 md:table-cell">{{ $participant->phone ?? '—' }}</td>
 
-                            <td class="hidden px-4 py-3 align-top text-slate-600 dark:text-slate-300 md:table-cell">
-                                @if ($participant->spouse_attending === null)
-                                    —
-                                @elseif ($participant->spouse_attending)
-                                    <span class="font-medium text-slate-800 dark:text-slate-200">Yes</span>
-                                    @if ($participant->spouse_name)
-                                        <span class="text-xs text-slate-500 dark:text-slate-400">· {{ $participant->spouse_name }}</span>
-                                    @endif
+                            <td class="px-4 py-3 align-top text-slate-600 dark:text-slate-300">
+                                @if ($participant->relatedParticipants->isNotEmpty())
+                                    {{ $participant->relatedParticipants->map(fn ($relation): string => $relation->name.' ('.$relation->relation?->label().')')->implode(', ') }}
                                 @else
-                                    No
+                                    <span class="text-slate-400 dark:text-slate-500">&mdash;</span>
                                 @endif
                             </td>
 
                             <td class="px-4 py-3 align-top">
                                 <div class="flex flex-wrap gap-1">
-                                    <x-ui.badge tone="emerald">Attending</x-ui.badge>
+                                    @if ($participant->attending)
+                                        <x-ui.badge tone="emerald">Attending</x-ui.badge>
+                                    @else
+                                        <x-ui.badge tone="rose">Not attending</x-ui.badge>
+                                    @endif
 
                                     @if ($participant->import_key === null)
                                         <x-ui.badge tone="sky">Self-registered</x-ui.badge>
