@@ -174,7 +174,7 @@ final class ParticipantShowTest extends TestCase
     }
 
     #[Test]
-    public function when_no_payment_is_recorded_then_the_progress_bar_shows_not_paid(): void
+    public function when_no_payment_is_recorded_then_the_progress_bar_shows_application_received(): void
     {
         config()->set('tickets.price_per_person', 4000);
 
@@ -187,15 +187,17 @@ final class ParticipantShowTest extends TestCase
         $response->assertViewHas('progressStatus', ParticipantProgressStatus::NotPaid);
         $response->assertSee('data-participant-progress', false);
         $response->assertSee('data-current-step="1"', false);
-        $response->assertSee('data-progress-step="not_paid" data-progress-state="current"', false);
+        $response->assertSee('Application Received');
+        $response->assertSee('data-progress-step="not_paid" data-progress-state="complete"', false);
+        $response->assertSee('data-progress-step="payment_complete" data-progress-state="current"', false);
         $response->assertDontSee('data-progress-step="payment_incomplete"', false);
         $response->assertSee('border-slate-300 bg-white/60 text-slate-500', false);
-        $response->assertDontSee('border-emerald-500 bg-emerald-500 text-white', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
         $response->assertDontSee('bg-violet-600', false);
     }
 
     #[Test]
-    public function when_a_partial_payment_is_recorded_then_the_progress_bar_still_shows_not_paid(): void
+    public function when_a_partial_payment_is_recorded_then_the_progress_bar_still_shows_application_received(): void
     {
         config()->set('tickets.price_per_person', 4000);
 
@@ -208,9 +210,11 @@ final class ParticipantShowTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentIncomplete);
         $response->assertSee('data-current-step="1"', false);
-        $response->assertSee('data-progress-step="not_paid" data-progress-state="current"', false);
+        $response->assertSee('Application Received');
+        $response->assertSee('data-progress-step="not_paid" data-progress-state="complete"', false);
+        $response->assertSee('data-progress-step="payment_complete" data-progress-state="current"', false);
         $response->assertDontSee('data-progress-step="payment_incomplete"', false);
-        $response->assertDontSee('border-emerald-500 bg-emerald-500 text-white', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
     }
 
     #[Test]
@@ -228,9 +232,9 @@ final class ParticipantShowTest extends TestCase
         $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentComplete);
         $response->assertSee('data-current-step="2"', false);
         $response->assertSee('data-progress-step="not_paid" data-progress-state="complete"', false);
-        $response->assertSee('data-progress-step="payment_complete" data-progress-state="current"', false);
-        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="upcoming"', false);
-        $this->assertSame(1, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
+        $response->assertSee('data-progress-step="payment_complete" data-progress-state="complete"', false);
+        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="current"', false);
+        $this->assertSame(2, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
     }
 
     #[Test]
@@ -248,10 +252,12 @@ final class ParticipantShowTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('progressStatus', ParticipantProgressStatus::TicketIssued);
         $response->assertSee('data-current-step="3"', false);
+        $response->assertSee('data-progress-step="not_paid" data-progress-state="complete"', false);
         $response->assertSee('data-progress-step="payment_complete" data-progress-state="complete"', false);
-        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="current"', false);
-        $response->assertSee('border-slate-300 bg-white/60 text-slate-500', false);
-        $this->assertSame(2, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
+        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="complete"', false);
+        $response->assertDontSee('data-progress-state="current"', false);
+        $response->assertDontSee('border-slate-300 bg-white/60 text-slate-500', false);
+        $this->assertSame(3, substr_count($response->getContent(), 'border-emerald-500 bg-emerald-500 text-white'));
     }
 
     #[Test]
@@ -269,6 +275,8 @@ final class ParticipantShowTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentComplete);
         $response->assertSee('data-current-step="2"', false);
+        $response->assertSee('data-progress-step="payment_complete" data-progress-state="complete"', false);
+        $response->assertSee('data-progress-step="ticket_issued" data-progress-state="current"', false);
     }
 
     #[Test]

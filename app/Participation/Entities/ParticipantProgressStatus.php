@@ -21,6 +21,15 @@ enum ParticipantProgressStatus: string
         };
     }
 
+    public function progressLabel(): string
+    {
+        return match ($this) {
+            self::NotPaid, self::PaymentIncomplete => 'Application Received',
+            self::PaymentComplete => 'Payment Complete',
+            self::TicketIssued => 'Ticket Issued',
+        };
+    }
+
     public function tone(): string
     {
         return match ($this) {

@@ -13,8 +13,8 @@
 >
     @foreach ($steps as $step)
         @php
-            $isComplete = $step->progressStep() < $currentStep;
-            $isCurrent = $step->progressStep() === $currentStep;
+            $isComplete = $step->progressStep() <= $currentStep;
+            $isCurrent = ! $isComplete && $step->progressStep() === $currentStep + 1;
 
             $circleClasses = $isComplete
                 ? 'border-emerald-500 bg-emerald-500 text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-emerald-950'
@@ -40,7 +40,7 @@
                 @endif
             </span>
 
-            <span class="relative z-10 mt-2 text-[0.7rem] font-medium leading-tight {{ $labelClasses }}">{{ $step->label() }}</span>
+            <span class="relative z-10 mt-2 text-[0.7rem] font-medium leading-tight {{ $labelClasses }}">{{ $step->progressLabel() }}</span>
         </li>
     @endforeach
 </ol>
