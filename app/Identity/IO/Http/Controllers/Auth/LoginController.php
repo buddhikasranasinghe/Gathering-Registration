@@ -35,9 +35,7 @@ class LoginController extends Controller
 
         OtpSession::put($request->session(), $loginRequest->email);
 
-        return redirect()
-            ->route('verify')
-            ->with('status', 'If an account exists for that email, we have sent a sign-in code.');
+        return redirect()->route('verify');
     }
 
     private function loginRequest(LoginFormRequest $request): LoginRequest

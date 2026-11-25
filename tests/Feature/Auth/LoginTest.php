@@ -98,6 +98,7 @@ class LoginTest extends TestCase
     {
         $response->assertRedirect(route('verify'));
         $response->assertSessionHas('auth.otp.email', $user->email);
+        $response->assertSessionMissing('status');
         $this->assertNull($user->oneTimePasscodes()->sole()->pending_name);
         Mail::assertSent(
             OneTimePasscodeMail::class,
@@ -109,6 +110,7 @@ class LoginTest extends TestCase
     {
         $response->assertRedirect(route('verify'));
         $response->assertSessionHas('auth.otp.email', $email);
+        $response->assertSessionMissing('status');
         Mail::assertSent(
             OneTimePasscodeMail::class,
             fn (OneTimePasscodeMail $mail): bool => $mail->hasTo($email),
@@ -118,10 +120,7 @@ class LoginTest extends TestCase
     private function assertNoAccountWasRevealed(TestResponse $response): void
     {
         $response->assertRedirect(route('verify'));
-        $response->assertSessionHas(
-            'status',
-            'If an account exists for that email, we have sent a sign-in code.',
-        );
+        $response->assertSessionMissing('status');
         Mail::assertNothingSent();
         $this->assertDatabaseCount('one_time_passcodes', 0);
     }
