@@ -6,6 +6,7 @@ use App\Identity\IO\Http\Controllers\Auth\LoginController;
 use App\Identity\IO\Http\Controllers\Auth\LogoutController;
 use App\Identity\IO\Http\Controllers\Auth\OtpVerificationController;
 use App\Identity\IO\Http\Controllers\Auth\RegistrationController;
+use App\Identity\IO\Http\Controllers\CreateUserFromParticipantController;
 use App\Identity\IO\Http\Controllers\HomeController;
 use App\Identity\IO\Http\Controllers\UserController;
 use App\Identity\IO\Http\Controllers\UserRoleController;
@@ -84,4 +85,6 @@ Route::middleware(['auth', 'role:super_admin'])->group(function () {
     Route::patch('/users/{user}/role', [UserRoleController::class, 'update'])->name('users.role.update');
     Route::post('/participants/import', [ParticipantImportController::class, 'store'])
         ->name('participants.import');
+    Route::post('/participants/{participant}/account', CreateUserFromParticipantController::class)
+        ->name('participants.account.store');
 });

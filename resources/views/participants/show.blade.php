@@ -337,6 +337,55 @@
                     </div>
                 </dl>
             </x-ui.glass-card>
+
+            @if ($canCreateUserAccount)
+                <x-ui.glass-card title="Account access" subtitle="Give this participant a login account.">
+                    @if ($linkedUser)
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-medium text-emerald-700 dark:text-emerald-300">User account exists</p>
+                                <p class="mt-1 break-all text-sm text-slate-600 dark:text-slate-400">{{ $linkedUser->email }}</p>
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <x-ui.role-badge :role="$linkedUser->role" />
+                                    <x-ui.badge tone="violet">{{ $linkedUser->batch?->name ?? 'No batch' }}</x-ui.badge>
+                                </div>
+                            </div>
+                            <a href="{{ route('users.index', ['search' => $linkedUser->email]) }}" class="link text-sm">View in Users</a>
+                        </div>
+                    @elseif ($participant->isArchived())
+                        <p class="text-sm text-slate-600 dark:text-slate-400">Archived participants cannot be given a user account.</p>
+                    @else
+                        <form method="POST" action="{{ route('participants.account.store', $participant) }}" class="space-y-3.5">
+                            @csrf
+
+                            <div>
+                                <label for="account-email" class="label">Email address</label>
+                                <input
+                                    id="account-email"
+                                    name="email"
+                                    type="email"
+                                    maxlength="255"
+                                    value="{{ old('email', $participant->email) }}"
+                                    placeholder="name@example.com"
+                                    required
+                                    class="field mt-1.5"
+                                >
+                                @error('email')
+                                    <p class="mt-1 text-xs font-medium text-rose-600 dark:text-rose-300">{{ $message }}</p>
+                                @enderror
+                                @error('participant')
+                                    <p class="mt-1 text-xs font-medium text-rose-600 dark:text-rose-300">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <x-ui.button type="submit">Create user account</x-ui.button>
+                            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                The participant can sign in with this email and a one-time code. No email is sent now.
+                            </p>
+                        </form>
+                    @endif
+                </x-ui.glass-card>
+            @endif
         </section>
 
         <section

@@ -41,6 +41,9 @@ class ShowParticipantController extends Controller
         $activeTab = $request->string('tab')->toString();
         $priceBreakdown = $ticketPriceCalculator->calculate($participant);
         $assessment = $ticketEligibility->assess($participant);
+        $linkedUser = $user->isSuperAdmin() && $participant->email !== null
+            ? User::query()->where('email', $participant->email)->with('batch:id,name')->first()
+            : null;
 
         return view('participants.show', [
             'participant' => $participant,
@@ -58,6 +61,8 @@ class ShowParticipantController extends Controller
             'progressStatus' => $ticketEligibility->progressStatus($participant),
             'hasIssuedTickets' => $participant->issuedTickets->isNotEmpty(),
             'canManage' => $user->role === UserRole::SuperAdmin || $user->role === UserRole::Admin,
+            'canCreateUserAccount' => $user->isSuperAdmin(),
+            'linkedUser' => $linkedUser,
             'activeTab' => in_array($activeTab, self::TABS, true) ? $activeTab : 'participant',
         ]);
     }
