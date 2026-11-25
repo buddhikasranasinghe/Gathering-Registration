@@ -10,6 +10,9 @@ use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\Payment;
 use App\Participation\Entities\PaymentMethod;
+use App\Participation\UseCases\RecordPaymentUseCase;
+use App\Participation\UseCases\Requests\RecordPaymentRequest;
+use DateTimeImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
@@ -17,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Imagick;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Throwable;
 
 final class RecordPaymentTest extends TestCase
@@ -85,6 +89,34 @@ final class RecordPaymentTest extends TestCase
 
         $this->assertStringStartsWith('payment-slips/', $payment->slip_path);
         Storage::disk()->assertExists($payment->slip_path);
+    }
+
+    #[Test]
+    public function it_removes_the_stored_slip_when_the_payment_cannot_be_saved(): void
+    {
+        Storage::fake('local');
+
+        $participant = Participant::factory()->create();
+        $admin = User::factory()->superAdmin()->create();
+
+        Payment::creating(static function (): void {
+            throw new RuntimeException('Payment could not be saved.');
+        });
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(RecordPaymentUseCase::class)->handle(new RecordPaymentRequest(
+                participant: $participant,
+                recordedBy: $admin,
+                amount: 1500.0,
+                method: 'cash',
+                paidAt: new DateTimeImmutable('2026-11-20'),
+                slip: UploadedFile::fake()->create('slip.pdf', 100, 'application/pdf'),
+            ));
+        } finally {
+            $this->assertSame([], Storage::disk()->allFiles('payment-slips'));
+        }
     }
 
     #[DataProvider('supportedSlipFormats')]

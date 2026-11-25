@@ -8,17 +8,21 @@ use App\Participation\Entities\Payment;
 use App\Participation\Services\PaymentSlipStorage;
 use App\Participation\UseCases\Requests\RecordPaymentRequest;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class RecordPaymentUseCase
 {
     public function __construct(private PaymentSlipStorage $slips) {}
 
+    /**
+     * @throws Throwable
+     */
     public function handle(RecordPaymentRequest $request): Payment
     {
-        return DB::transaction(function () use ($request): Payment {
-            $slipPath = $request->slip !== null ? $this->slips->store($request->slip) : null;
+        $slipPath = $request->slip !== null ? $this->slips->store($request->slip) : null;
 
-            return Payment::query()->create([
+        try {
+            return DB::transaction(fn (): Payment => Payment::query()->create([
                 'participant_id' => $request->participant->getKey(),
                 'amount' => $request->amount,
                 'method' => $request->method,
@@ -26,7 +30,11 @@ final class RecordPaymentUseCase
                 'slip_path' => $slipPath,
                 'recorded_by' => $request->recordedBy->getKey(),
                 'recorded_by_name' => $request->recordedBy->name,
-            ]);
-        });
+            ]));
+        } catch (Throwable $exception) {
+            $this->slips->delete($slipPath);
+
+            throw $exception;
+        }
     }
 }

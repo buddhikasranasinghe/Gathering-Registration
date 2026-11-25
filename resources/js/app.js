@@ -19,7 +19,148 @@ const storedTheme = () => {
 
 const prefersDark = () => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 
+const formatFileSize = (bytes) => {
+    if (! Number.isFinite(bytes) || bytes <= 0) {
+        return '0 KB';
+    }
+
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const setSubmitButtonBusy = (button) => {
+    if (! (button instanceof HTMLButtonElement || button instanceof HTMLInputElement)) {
+        return;
+    }
+
+    if (button.dataset.submitBusy === 'true') {
+        return;
+    }
+
+    button.dataset.submitBusy = 'true';
+    button.dataset.submitWasDisabled = String(button.disabled);
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+
+    if (button instanceof HTMLInputElement) {
+        button.dataset.submitOriginalValue = button.value;
+        button.value = 'Working…';
+
+        return;
+    }
+
+    const spinner = document.createElement('span');
+
+    spinner.className = 'submit-spinner';
+    spinner.dataset.submitSpinner = 'true';
+    spinner.setAttribute('aria-hidden', 'true');
+
+    button.prepend(spinner);
+};
+
+const resetSubmitButton = (button) => {
+    if (! (button instanceof HTMLButtonElement || button instanceof HTMLInputElement)) {
+        return;
+    }
+
+    button.disabled = button.dataset.submitWasDisabled === 'true';
+    button.removeAttribute('aria-busy');
+
+    if (button instanceof HTMLInputElement && button.dataset.submitOriginalValue !== undefined) {
+        button.value = button.dataset.submitOriginalValue;
+    }
+
+    button.querySelectorAll('[data-submit-spinner]').forEach((spinner) => spinner.remove());
+
+    delete button.dataset.submitBusy;
+    delete button.dataset.submitWasDisabled;
+    delete button.dataset.submitOriginalValue;
+};
+
+const resetSubmittingForm = (form) => {
+    form.querySelectorAll('[data-submit-busy="true"]').forEach(resetSubmitButton);
+
+    delete form.dataset.submitting;
+    form.removeAttribute('aria-busy');
+};
+
+const updateFileSummary = (input) => {
+    const target = input.dataset.fileSummary ? document.getElementById(input.dataset.fileSummary) : null;
+
+    if (! target) {
+        return;
+    }
+
+    const file = input.files?.[0] ?? null;
+
+    if (! file) {
+        target.hidden = true;
+        target.textContent = '';
+        target.classList.remove('file-summary-error');
+        input.setCustomValidity('');
+        input.removeAttribute('aria-invalid');
+
+        return;
+    }
+
+    const maxBytes = Number(input.dataset.maxBytes) || 5 * 1024 * 1024;
+    const tooLarge = file.size > maxBytes;
+    const isHeic = /\.(heic|heif)$/i.test(file.name) || ['image/heic', 'image/heif'].includes(file.type);
+
+    input.setCustomValidity(tooLarge ? `The file must be ${formatFileSize(maxBytes)} or smaller.` : '');
+    input.setAttribute('aria-invalid', String(tooLarge));
+
+    target.hidden = false;
+    target.textContent = tooLarge
+        ? `${file.name} is ${formatFileSize(file.size)}. Maximum allowed size is ${formatFileSize(maxBytes)}.`
+        : `${file.name} · ${formatFileSize(file.size)}${isHeic ? ' · HEIC images are converted after upload.' : ''}`;
+    target.classList.toggle('file-summary-error', tooLarge);
+};
+
 applyTheme(storedTheme() ? storedTheme() === 'dark' : prefersDark());
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+
+    if (! (form instanceof HTMLFormElement) || (form.getAttribute('method') ?? 'get').toLowerCase() !== 'post') {
+        return;
+    }
+
+    if (form.dataset.submitting === 'true') {
+        event.preventDefault();
+
+        return;
+    }
+
+    form.dataset.submitting = 'true';
+    form.setAttribute('aria-busy', 'true');
+
+    if (event.submitter) {
+        setSubmitButtonBusy(event.submitter);
+    }
+
+    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((button) => {
+        if (button !== event.submitter) {
+            setSubmitButtonBusy(button);
+        }
+    });
+});
+
+window.addEventListener('pageshow', (event) => {
+    if (! event.persisted) {
+        return;
+    }
+
+    document.querySelectorAll('form[data-submitting="true"]').forEach(resetSubmittingForm);
+    document.querySelectorAll('[data-submit-busy="true"]').forEach(resetSubmitButton);
+});
 
 document.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-theme-toggle]');
@@ -57,6 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 timer = window.setTimeout(submit, 400);
             });
         }
+    });
+
+    document.querySelectorAll('input[type="file"][data-file-summary]').forEach((input) => {
+        input.addEventListener('change', () => updateFileSummary(input));
+        updateFileSummary(input);
     });
 
     document.querySelectorAll('[data-tabs]').forEach((group) => {
@@ -313,6 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const clearSelectedFile = () => {
             if (slipInput) {
                 slipInput.value = '';
+                slipInput.setCustomValidity('');
+                slipInput.removeAttribute('aria-invalid');
             }
 
             revokeSelectedFileUrl();
@@ -394,7 +542,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (slipSelected) {
-                    slipSelected.textContent = `Selected: ${file.name}`;
+                    const tooLarge = file.size > 5 * 1024 * 1024;
+
+                    slipInput?.setCustomValidity(tooLarge ? 'The payment slip must be 5 MB or smaller.' : '');
+                    slipInput?.setAttribute('aria-invalid', String(tooLarge));
+                    slipSelected.textContent = tooLarge
+                        ? `${file.name} is ${formatFileSize(file.size)}. Maximum allowed size is 5 MB.`
+                        : `Selected: ${file.name} (${formatFileSize(file.size)})`;
+                    slipSelected.classList.toggle('file-summary-error', tooLarge);
                     slipSelected.hidden = false;
                 }
 

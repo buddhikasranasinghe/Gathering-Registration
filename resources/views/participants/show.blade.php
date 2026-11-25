@@ -429,7 +429,17 @@
 
                         <div>
                             <label for="slip" class="label">Payment slip (optional)</label>
-                            <input id="slip" name="slip" type="file" accept="{{ \App\Participation\Entities\Payment::SLIP_ACCEPT }}" class="field mt-1.5">
+                            <input
+                                id="slip"
+                                name="slip"
+                                type="file"
+                                accept="{{ \App\Participation\Entities\Payment::SLIP_ACCEPT }}"
+                                data-file-summary="slip-file-summary"
+                                data-max-bytes="{{ 5 * 1024 * 1024 }}"
+                                class="field mt-1.5"
+                            >
+                            <p id="slip-file-summary" hidden class="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400" role="status" aria-live="polite"></p>
+                            <p class="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">JPG, PNG, HEIC, HEIF, or PDF up to 5 MB.</p>
                         </div>
 
                         <x-ui.button type="submit" class="w-full">Record payment</x-ui.button>

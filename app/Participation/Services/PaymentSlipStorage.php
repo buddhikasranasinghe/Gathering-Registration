@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Participation\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -26,11 +27,45 @@ final class PaymentSlipStorage
 
     public function store(UploadedFile $slip): string
     {
-        if ($this->isHeic($slip)) {
-            return $this->storeHeicAsJpeg($slip);
+        $startedAt = hrtime(true);
+        $sizeBytes = $slip->getSize();
+        $extension = strtolower($slip->getClientOriginalExtension());
+        $mimeType = $slip->getMimeType();
+        $isHeic = $this->isHeic($slip);
+        $conversionMs = 0;
+
+        if ($isHeic) {
+            $conversionStartedAt = hrtime(true);
+            $contents = $this->convertHeicToJpeg($slip->getRealPath());
+            $conversionMs = $this->elapsedMilliseconds($conversionStartedAt);
+
+            $path = 'payment-slips/'.Str::uuid().'.jpg';
+            $storageStartedAt = hrtime(true);
+
+            if (! Storage::disk()->put($path, $contents)) {
+                throw ValidationException::withMessages([
+                    'slip' => 'The payment slip could not be stored. Please try again.',
+                ]);
+            }
+        } else {
+            $storageStartedAt = hrtime(true);
+            $path = $slip->store('payment-slips');
         }
 
-        return $slip->store('payment-slips');
+        $storageMs = $this->elapsedMilliseconds($storageStartedAt);
+
+        Log::info('Payment slip stored', [
+            'disk' => config('filesystems.default'),
+            'size_bytes' => $sizeBytes,
+            'extension' => $extension,
+            'mime_type' => $mimeType,
+            'heic' => $isHeic,
+            'conversion_ms' => $conversionMs,
+            'storage_ms' => $storageMs,
+            'total_ms' => $this->elapsedMilliseconds($startedAt),
+        ]);
+
+        return $path;
     }
 
     public function delete(?string $path): void
@@ -44,20 +79,6 @@ final class PaymentSlipStorage
     {
         return in_array(strtolower($slip->getClientOriginalExtension()), self::HEIC_EXTENSIONS, true)
             || in_array(strtolower($slip->getMimeType() ?? ''), self::HEIC_MIME_TYPES, true);
-    }
-
-    private function storeHeicAsJpeg(UploadedFile $slip): string
-    {
-        $contents = $this->convertHeicToJpeg($slip->getRealPath());
-        $path = 'payment-slips/'.Str::uuid().'.jpg';
-
-        if (! Storage::disk()->put($path, $contents)) {
-            throw ValidationException::withMessages([
-                'slip' => 'The payment slip could not be stored. Please try again.',
-            ]);
-        }
-
-        return $path;
     }
 
     private function convertHeicToJpeg(string $source): string
@@ -132,6 +153,11 @@ final class PaymentSlipStorage
             @unlink($temporaryPath);
             @unlink($targetPath);
         }
+    }
+
+    private function elapsedMilliseconds(int $startedAt): int
+    {
+        return (int) round((hrtime(true) - $startedAt) / 1_000_000);
     }
 
     private function conversionFailed(): ValidationException

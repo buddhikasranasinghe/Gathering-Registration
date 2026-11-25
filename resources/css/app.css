@@ -81,6 +81,12 @@
     }
 }
 
+@keyframes submit-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @layer base {
     html {
         scroll-behavior: smooth;
@@ -214,6 +220,30 @@
 
     .toast-exit {
         animation: var(--animate-toast-out);
+    }
+
+    .submit-spinner {
+        height: 1rem;
+        width: 1rem;
+        flex: none;
+        border-radius: 9999px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        animation: submit-spin 0.7s linear infinite;
+    }
+
+    .file-summary-error {
+        color: #e11d48;
+    }
+
+    .dark .file-summary-error {
+        color: #fda4af;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .submit-spinner {
+            animation-duration: 1.4s;
+        }
     }
 
     /* ---------- Typography helpers ---------- */
