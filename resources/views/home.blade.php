@@ -40,7 +40,7 @@
                     </div>
                 </div>
 
-                <x-ui.role-badge :role="auth()->user()->role" />
+                <x-ui.role-badge :role="auth()->user()->role" :label="auth()->user()->displayRoleLabel()" />
             </div>
 
             <dl class="mt-8 grid gap-4 sm:grid-cols-2">
@@ -51,7 +51,7 @@
 
                 <div class="glass-soft p-4">
                     <dt class="label">Role</dt>
-                    <dd class="mt-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ auth()->user()->role->label() }}</dd>
+                    <dd class="mt-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ auth()->user()->displayRoleLabel() }}</dd>
                 </div>
             </dl>
         </section>
@@ -63,6 +63,10 @@
                 @if (auth()->user()->isAdministrator())
                     <a href="{{ route('participants.index') }}" class="glass-soft flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:text-violet-700 dark:text-slate-200 dark:hover:text-violet-200">
                         <span>Participants</span>
+                        <span aria-hidden="true">&rarr;</span>
+                    </a>
+                    <a href="{{ route('treasury.index') }}" class="glass-soft flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:text-violet-700 dark:text-slate-200 dark:hover:text-violet-200">
+                        <span>Treasury</span>
                         <span aria-hidden="true">&rarr;</span>
                     </a>
                 @endif

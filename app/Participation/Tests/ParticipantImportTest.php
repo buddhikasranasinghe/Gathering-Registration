@@ -191,9 +191,11 @@ final class ParticipantImportTest extends TestCase
     #[Test]
     public function when_a_non_super_admin_uploads_a_file_then_it_is_forbidden(UserRole $role): void
     {
-        $user = $role === UserRole::Admin
-            ? User::factory()->admin()->create()
-            : User::factory()->create();
+        $user = match ($role) {
+            UserRole::Admin => User::factory()->admin()->create(),
+            UserRole::MainTreasurer => User::factory()->mainTreasurer()->create(),
+            default => User::factory()->create(),
+        };
 
         $response = $this->actingAs($user)->post(
             route('participants.import'),
@@ -218,6 +220,7 @@ final class ParticipantImportTest extends TestCase
     {
         return [
             'admin' => [UserRole::Admin],
+            'main_treasurer' => [UserRole::MainTreasurer],
             'participant' => [UserRole::User],
         ];
     }

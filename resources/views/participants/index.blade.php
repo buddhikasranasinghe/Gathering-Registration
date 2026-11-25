@@ -141,7 +141,7 @@
                 >
             </div>
 
-            @if ($canImport)
+            @if ($canFilterByBatch)
                 <div>
                     <label for="batch" class="label">Batch</label>
                     <select id="batch" name="batch_id" class="field mt-1.5">

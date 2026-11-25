@@ -6,7 +6,6 @@ namespace App\Participation\IO\Http\Controllers;
 
 use App\Foundation\IO\Http\Controllers\Controller;
 use App\Identity\Entities\User;
-use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Batch;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantImportRun;
@@ -62,8 +61,9 @@ class ParticipantController extends Controller
                     ->where('attending', true)
                     ->count(),
             ],
-            'canImport' => $user->role === UserRole::SuperAdmin,
-            'hasAssignedBatch' => $user->role === UserRole::SuperAdmin || $user->batch_id !== null,
+            'canImport' => $user->isSuperAdmin(),
+            'canFilterByBatch' => ! $user->isBatchScoped(),
+            'hasAssignedBatch' => ! $user->isBatchScoped() || $user->batch_id !== null,
         ]);
     }
 
@@ -99,7 +99,7 @@ class ParticipantController extends Controller
             ])
             ->whereNull('archived_at');
 
-        if ($user->role === UserRole::SuperAdmin && $filters['batchId'] !== null) {
+        if (! $user->isBatchScoped() && $filters['batchId'] !== null) {
             $query->where('batch_id', $filters['batchId']);
         }
 
@@ -160,7 +160,7 @@ class ParticipantController extends Controller
             ->orderBy('name')
             ->orderBy('id');
 
-        if ($user->role === UserRole::Admin) {
+        if ($user->isBatchScoped()) {
             $query->whereKey($user->batch_id);
         }
 
@@ -171,7 +171,7 @@ class ParticipantController extends Controller
     {
         $query = Participant::query();
 
-        if ($user->role !== UserRole::Admin) {
+        if (! $user->isBatchScoped()) {
             return $query;
         }
 

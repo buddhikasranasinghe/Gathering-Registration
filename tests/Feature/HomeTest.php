@@ -97,7 +97,7 @@ class HomeTest extends TestCase
         $response->assertOk();
         $response->assertSee($user->name);
         $response->assertSee($user->email);
-        $response->assertSee('Admin');
+        $response->assertSee('Treasurer — '.$user->batch->name);
     }
 
     private function assertNameIsEscaped(TestResponse $response): void

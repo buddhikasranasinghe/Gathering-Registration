@@ -38,6 +38,18 @@ class VerifyOtpTest extends TestCase
     }
 
     #[Test]
+    public function when_a_code_is_waiting_then_the_verification_page_renders_the_resend_countdown(): void
+    {
+        Mail::fake();
+        $this->startRegistration('buddhika@example.com');
+
+        $response = $this->get('/verify');
+
+        $response->assertOk();
+        $response->assertSee('Resend code in ${seconds}s', false);
+    }
+
+    #[Test]
     public function when_the_code_is_correct_then_the_account_is_created_and_signed_in(): void
     {
         Mail::fake();

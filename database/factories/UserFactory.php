@@ -42,13 +42,23 @@ class UserFactory extends Factory
     }
 
     /**
-     * Indicate that the user is an administrator.
+     * Indicate that the user is a batch treasurer.
      */
     public function admin(): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Admin,
             'batch_id' => Batch::factory(),
+        ]);
+    }
+
+    /**
+     * Indicate that the user is a main treasurer.
+     */
+    public function mainTreasurer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::MainTreasurer,
         ]);
     }
 

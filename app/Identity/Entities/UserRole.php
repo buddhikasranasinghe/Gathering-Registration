@@ -7,6 +7,7 @@ namespace App\Identity\Entities;
 enum UserRole: string
 {
     case SuperAdmin = 'super_admin';
+    case MainTreasurer = 'main_treasurer';
     case Admin = 'admin';
     case User = 'user';
 
@@ -17,7 +18,8 @@ enum UserRole: string
     {
         return match ($this) {
             self::SuperAdmin => 'Super Admin',
-            self::Admin => 'Admin',
+            self::MainTreasurer => 'Main Treasurer',
+            self::Admin => 'Treasurer',
             self::User => 'User',
         };
     }

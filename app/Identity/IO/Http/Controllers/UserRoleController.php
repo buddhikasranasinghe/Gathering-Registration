@@ -34,7 +34,8 @@ class UserRoleController extends Controller
 
         $roleWithArticle = match ($role) {
             UserRole::SuperAdmin => 'a Super Admin',
-            UserRole::Admin => 'an Admin',
+            UserRole::MainTreasurer => 'a Main Treasurer',
+            UserRole::Admin => 'a Treasurer',
             UserRole::User => 'a User',
         };
 

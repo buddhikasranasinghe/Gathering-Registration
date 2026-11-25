@@ -36,7 +36,7 @@ final class UpdateUserRoleUseCase
             }
 
             if ($request->role === UserRole::Admin && $user->batch_id === null) {
-                throw new UserRoleChangeNotAllowedException('A user without a batch cannot be promoted to Admin. Update the participant spreadsheet first.');
+                throw new UserRoleChangeNotAllowedException('A user without a batch cannot be promoted to Treasurer. Update the participant spreadsheet first.');
             }
 
             $user->forceFill(['role' => $request->role])->save();

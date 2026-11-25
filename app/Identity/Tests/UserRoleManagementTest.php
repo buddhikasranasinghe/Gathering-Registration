@@ -44,9 +44,23 @@ final class UserRoleManagementTest extends TestCase
         );
 
         $response->assertSessionHasErrors([
-            'role' => 'A user without a batch cannot be promoted to Admin. Update the participant spreadsheet first.',
+            'role' => 'A user without a batch cannot be promoted to Treasurer. Update the participant spreadsheet first.',
         ]);
         $this->assertSame(UserRole::User, $user->refresh()->role);
+    }
+
+    #[Test]
+    public function when_a_super_admin_promotes_a_user_without_a_batch_to_main_treasurer_then_the_change_is_saved(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($superAdmin)->patch(
+            route('users.role.update', $user),
+            ['role' => UserRole::MainTreasurer->value],
+        );
+
+        $this->assertRoleWasUpdated($response, $user, UserRole::MainTreasurer, 'a Main Treasurer');
     }
 
     #[Test]
@@ -80,9 +94,11 @@ final class UserRoleManagementTest extends TestCase
     #[Test]
     public function when_a_non_super_admin_changes_a_user_role_then_the_request_is_forbidden(UserRole $role): void
     {
-        $actor = $role === UserRole::Admin
-            ? User::factory()->admin()->create()
-            : User::factory()->create();
+        $actor = match ($role) {
+            UserRole::Admin => User::factory()->admin()->create(),
+            UserRole::MainTreasurer => User::factory()->mainTreasurer()->create(),
+            default => User::factory()->create(),
+        };
         $user = User::factory()->create();
 
         $response = $this->actingAs($actor)->patch(
@@ -110,7 +126,8 @@ final class UserRoleManagementTest extends TestCase
     public function when_a_super_admin_views_the_users_page_then_the_protected_and_editable_roles_are_shown(): void
     {
         $superAdmin = User::factory()->superAdmin()->create(['name' => 'Buddhika']);
-        $user = User::factory()->for(Batch::factory()->state(['name' => '40']))->create(['name' => 'Saman']);
+        $batch = Batch::factory()->create(['name' => '40']);
+        $user = User::factory()->admin()->create(['name' => 'Saman', 'batch_id' => $batch->id]);
 
         $response = $this->actingAs($superAdmin)->get(route('users.index'));
 
@@ -207,9 +224,11 @@ final class UserRoleManagementTest extends TestCase
     #[Test]
     public function when_a_non_super_admin_views_the_users_page_then_the_request_is_forbidden(UserRole $role): void
     {
-        $user = $role === UserRole::Admin
-            ? User::factory()->admin()->create()
-            : User::factory()->create();
+        $user = match ($role) {
+            UserRole::Admin => User::factory()->admin()->create(),
+            UserRole::MainTreasurer => User::factory()->mainTreasurer()->create(),
+            default => User::factory()->create(),
+        };
 
         $response = $this->actingAs($user)->get(route('users.index'));
 
@@ -222,12 +241,16 @@ final class UserRoleManagementTest extends TestCase
     public static function roleTransitions(): array
     {
         return [
-            'promote a user' => [UserRole::User, UserRole::Admin, 'an Admin'],
-            'demote an admin' => [UserRole::Admin, UserRole::User, 'a User'],
+            'promote a user' => [UserRole::User, UserRole::Admin, 'a Treasurer'],
+            'demote a treasurer' => [UserRole::Admin, UserRole::User, 'a User'],
+            'promote a user to main treasurer' => [UserRole::User, UserRole::MainTreasurer, 'a Main Treasurer'],
+            'promote a treasurer to main treasurer' => [UserRole::Admin, UserRole::MainTreasurer, 'a Main Treasurer'],
+            'demote a main treasurer to treasurer' => [UserRole::MainTreasurer, UserRole::Admin, 'a Treasurer'],
             'promote a user to super admin' => [UserRole::User, UserRole::SuperAdmin, 'a Super Admin'],
-            'promote an admin to super admin' => [UserRole::Admin, UserRole::SuperAdmin, 'a Super Admin'],
+            'promote a treasurer to super admin' => [UserRole::Admin, UserRole::SuperAdmin, 'a Super Admin'],
             'demote a super admin to a user' => [UserRole::SuperAdmin, UserRole::User, 'a User'],
-            'demote a super admin to an admin' => [UserRole::SuperAdmin, UserRole::Admin, 'an Admin'],
+            'demote a super admin to a main treasurer' => [UserRole::SuperAdmin, UserRole::MainTreasurer, 'a Main Treasurer'],
+            'demote a super admin to a treasurer' => [UserRole::SuperAdmin, UserRole::Admin, 'a Treasurer'],
         ];
     }
 
@@ -238,6 +261,7 @@ final class UserRoleManagementTest extends TestCase
     {
         return [
             'admin' => [UserRole::Admin],
+            'main_treasurer' => [UserRole::MainTreasurer],
             'user' => [UserRole::User],
         ];
     }
@@ -274,10 +298,11 @@ final class UserRoleManagementTest extends TestCase
         $response->assertSee($user->name);
         $response->assertSee('Protected');
         $response->assertSee('title="You cannot change your own role."', false);
-        $response->assertSee('40');
+        $response->assertSee('Treasurer — 40');
         $response->assertSeeInOrder([
             'id="role-'.$user->id.'"',
             'value="'.UserRole::SuperAdmin->value.'"',
+            'value="'.UserRole::MainTreasurer->value.'"',
             'value="'.UserRole::Admin->value.'"',
             'value="'.UserRole::User->value.'"',
         ], false);

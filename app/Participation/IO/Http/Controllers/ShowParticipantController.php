@@ -6,7 +6,6 @@ namespace App\Participation\IO\Http\Controllers;
 
 use App\Foundation\IO\Http\Controllers\Controller;
 use App\Identity\Entities\User;
-use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Participant;
 use App\Participation\Services\TicketEligibilityService;
 use App\Participation\Services\TicketPriceCalculator;
@@ -60,7 +59,7 @@ class ShowParticipantController extends Controller
             ],
             'progressStatus' => $ticketEligibility->progressStatus($participant),
             'hasIssuedTickets' => $participant->issuedTickets->isNotEmpty(),
-            'canManage' => $user->role === UserRole::SuperAdmin || $user->role === UserRole::Admin,
+            'canManage' => $user->isAdministrator(),
             'canCreateUserAccount' => $user->isSuperAdmin(),
             'linkedUser' => $linkedUser,
             'activeTab' => in_array($activeTab, self::TABS, true) ? $activeTab : 'participant',
@@ -69,7 +68,7 @@ class ShowParticipantController extends Controller
 
     private function authorizeAccess(User $user, Participant $participant): void
     {
-        if ($user->role === UserRole::Admin && $participant->batch_id !== $user->batch_id) {
+        if ($user->isBatchScoped() && $participant->batch_id !== $user->batch_id) {
             abort(404);
         }
     }

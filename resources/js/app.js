@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             field.addEventListener('change', submit);
         });
 
-        const search = form.querySelector('input[name="search"]');
+        const search = form.querySelector('input[type="search"]');
 
         if (search) {
             search.addEventListener('input', () => {

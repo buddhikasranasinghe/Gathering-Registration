@@ -24,6 +24,8 @@ use App\Participation\IO\Http\Controllers\ResendTicketController;
 use App\Participation\IO\Http\Controllers\ShowParticipantController;
 use App\Participation\IO\Http\Controllers\StoreRelationController;
 use App\Participation\IO\Http\Controllers\StreamPaymentSlipPreviewController;
+use App\Participation\IO\Http\Controllers\TreasuryBatchController;
+use App\Participation\IO\Http\Controllers\TreasuryOverviewController;
 use App\Participation\IO\Http\Controllers\UpdateAttendanceController;
 use App\Participation\IO\Http\Controllers\UpdatePaymentController;
 use App\Participation\IO\Http\Controllers\UpdateRelationAttendanceController;
@@ -61,7 +63,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', LogoutController::class)->name('logout');
 });
 
-Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
+Route::middleware(['auth', 'role:super_admin|main_treasurer|admin'])->group(function () {
     Route::get('/participants', ParticipantController::class)->name('participants.index');
     Route::get('/participants/{participant}', ShowParticipantController::class)->name('participants.show');
     Route::post('/participants/{participant}/attendance', UpdateAttendanceController::class)->name('participants.attendance.update');
@@ -77,6 +79,11 @@ Route::middleware(['auth', 'role:super_admin|admin'])->group(function () {
     Route::get('/participants/{participant}/payments/{payment}/slip', DownloadPaymentSlipController::class)->name('participants.payments.slip');
     Route::get('/participants/{participant}/payments/{payment}/slip/preview', StreamPaymentSlipPreviewController::class)->name('participants.payments.slip.preview');
     Route::get('/participants/{participant}/tickets/{ticket}/download', DownloadIssuedTicketController::class)->name('participants.tickets.download');
+});
+
+Route::middleware(['auth', 'role:super_admin|main_treasurer|admin'])->group(function () {
+    Route::get('/treasury', TreasuryOverviewController::class)->name('treasury.index');
+    Route::get('/treasury/batches/{batch}', TreasuryBatchController::class)->name('treasury.batches.show');
 });
 
 Route::middleware(['auth', 'role:super_admin'])->group(function () {

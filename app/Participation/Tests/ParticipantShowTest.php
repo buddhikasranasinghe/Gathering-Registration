@@ -36,6 +36,23 @@ final class ParticipantShowTest extends TestCase
     }
 
     #[Test]
+    public function when_a_main_treasurer_views_a_participant_from_another_batch_then_the_details_page_is_shown(): void
+    {
+        $participant = Participant::factory()->create([
+            'name' => 'Global Person',
+            'batch_id' => Batch::factory(),
+        ]);
+
+        $response = $this->actingAs(User::factory()->mainTreasurer()->create())
+            ->get(route('participants.show', $participant));
+
+        $response->assertOk();
+        $response->assertSee('Global Person');
+        $response->assertViewHas('canManage', true);
+        $response->assertViewHas('canCreateUserAccount', false);
+    }
+
+    #[Test]
     public function when_attendance_was_changed_then_the_change_history_popup_shows_the_action_actor_and_time(): void
     {
         $this->travelTo('2026-11-20 18:45:00');

@@ -114,6 +114,24 @@ final class ParticipantsPageTest extends TestCase
     }
 
     #[Test]
+    public function when_a_main_treasurer_views_the_page_then_all_batches_can_be_filtered_and_import_is_hidden(): void
+    {
+        $batch = Batch::factory()->create(['name' => 'Forty']);
+        Participant::factory()->for($batch)->create(['name' => 'Batch Member']);
+        Participant::factory()->create(['name' => 'Other Batch Member']);
+
+        $response = $this->actingAs(User::factory()->mainTreasurer()->create())
+            ->get(route('participants.index', ['batch_id' => $batch->id]));
+
+        $response->assertOk();
+        $response->assertSee('Batch Member');
+        $response->assertDontSee('Other Batch Member');
+        $response->assertDontSee('Import spreadsheet');
+        $response->assertViewHas('canFilterByBatch', true);
+        $response->assertViewHas('canImport', false);
+    }
+
+    #[Test]
     public function when_an_admin_has_no_batch_then_the_roster_is_empty_and_the_reason_is_shown(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

@@ -88,7 +88,9 @@ class User extends Authenticatable
      */
     public function isAdministrator(): bool
     {
-        return $this->role === UserRole::SuperAdmin || $this->role === UserRole::Admin;
+        return $this->role === UserRole::SuperAdmin
+            || $this->role === UserRole::MainTreasurer
+            || $this->role === UserRole::Admin;
     }
 
     /**
@@ -97,5 +99,33 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->role === UserRole::SuperAdmin;
+    }
+
+    /**
+     * Whether the account has the Main Treasurer role.
+     */
+    public function isMainTreasurer(): bool
+    {
+        return $this->role === UserRole::MainTreasurer;
+    }
+
+    /**
+     * Whether the account is restricted to a single batch.
+     */
+    public function isBatchScoped(): bool
+    {
+        return $this->role === UserRole::Admin;
+    }
+
+    /**
+     * The role name shown in the interface, including the batch where relevant.
+     */
+    public function displayRoleLabel(): string
+    {
+        if ($this->isBatchScoped() && $this->batch !== null) {
+            return $this->role->label().' — '.$this->batch->name;
+        }
+
+        return $this->role->label();
     }
 }

@@ -52,35 +52,35 @@
             </button>
         </form>
     </div>
-</x-layouts.guest>
 
-@push('scripts')
-    <script>
-        document.querySelectorAll('[data-resend-button]').forEach((button) => {
-            let seconds = Number(button.dataset.cooldown || 0);
+    @push('scripts')
+        <script>
+            document.querySelectorAll('[data-resend-button]').forEach((button) => {
+                let seconds = Number(button.dataset.cooldown || 0);
 
-            const render = () => {
-                if (seconds > 0) {
-                    button.disabled = true;
-                    button.textContent = `Resend code in ${seconds}s`;
-                } else {
-                    button.disabled = false;
-                    button.textContent = 'Resend code';
-                }
-            };
-
-            render();
-
-            if (seconds > 0) {
-                const timer = window.setInterval(() => {
-                    seconds -= 1;
-                    render();
-
-                    if (seconds <= 0) {
-                        window.clearInterval(timer);
+                const render = () => {
+                    if (seconds > 0) {
+                        button.disabled = true;
+                        button.textContent = `Resend code in ${seconds}s`;
+                    } else {
+                        button.disabled = false;
+                        button.textContent = 'Resend code';
                     }
-                }, 1000);
-            }
-        });
-    </script>
-@endpush
+                };
+
+                render();
+
+                if (seconds > 0) {
+                    const timer = window.setInterval(() => {
+                        seconds -= 1;
+                        render();
+
+                        if (seconds <= 0) {
+                            window.clearInterval(timer);
+                        }
+                    }, 1000);
+                }
+            });
+        </script>
+    @endpush
+</x-layouts.guest>

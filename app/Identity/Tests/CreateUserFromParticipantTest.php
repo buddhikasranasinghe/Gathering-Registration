@@ -132,6 +132,21 @@ final class CreateUserFromParticipantTest extends TestCase
     }
 
     #[Test]
+    public function when_a_main_treasurer_tries_to_create_a_user_then_access_is_forbidden(): void
+    {
+        $mainTreasurer = User::factory()->mainTreasurer()->create();
+        $participant = Participant::factory()->create(['email' => null]);
+
+        $response = $this->actingAs($mainTreasurer)->post(
+            route('participants.account.store', $participant),
+            ['email' => 'main-treasurer-blocked@example.test'],
+        );
+
+        $response->assertForbidden();
+        $this->assertSame(0, User::query()->where('email', 'main-treasurer-blocked@example.test')->count());
+    }
+
+    #[Test]
     public function when_a_guest_tries_to_create_a_user_then_it_redirects_to_login(): void
     {
         $participant = Participant::factory()->create(['email' => null]);

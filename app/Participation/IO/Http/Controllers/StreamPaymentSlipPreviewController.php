@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Participation\IO\Http\Controllers;
 
 use App\Foundation\IO\Http\Controllers\Controller;
-use App\Identity\Entities\UserRole;
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\Payment;
 use Illuminate\Http\Request;
@@ -18,7 +17,7 @@ class StreamPaymentSlipPreviewController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === UserRole::Admin && $participant->batch_id !== $user->batch_id) {
+        if ($user->isBatchScoped() && $participant->batch_id !== $user->batch_id) {
             abort(404);
         }
 

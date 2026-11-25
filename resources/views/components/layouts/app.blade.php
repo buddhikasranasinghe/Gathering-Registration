@@ -49,11 +49,14 @@
                     <a href="{{ route('participants.index') }}" @class(['nav-link', 'nav-link-active' => request()->routeIs('participants.*')])>
                         Participants
                     </a>
+                    <a href="{{ route('treasury.index') }}" @class(['nav-link', 'nav-link-active' => request()->routeIs('treasury.*')])>
+                        Treasury
+                    </a>
                 @endif
 
                 <span class="ml-1 hidden items-center gap-2 border-l border-slate-300/60 pl-3 sm:flex dark:border-white/10">
                     <span class="hidden text-slate-600 md:inline dark:text-slate-300">{{ auth()->user()->name }}</span>
-                    <x-ui.role-badge :role="auth()->user()->role" />
+                    <x-ui.role-badge :role="auth()->user()->role" :label="auth()->user()->displayRoleLabel()" />
                 </span>
 
                 <button

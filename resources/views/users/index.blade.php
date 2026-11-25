@@ -4,7 +4,7 @@
             <p class="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-violet-700 dark:text-violet-300">Access</p>
             <h1 class="mt-1 font-display text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">Users</h1>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Manage administrator access. You cannot change your own role.
+                Manage treasurer access. You cannot change your own role.
             </p>
         </div>
 
@@ -83,7 +83,7 @@
                             </td>
 
                             <td class="px-4 py-3 align-top">
-                                <x-ui.role-badge :role="$user->role" />
+                                <x-ui.role-badge :role="$user->role" :label="$user->displayRoleLabel()" />
                             </td>
 
                             <td class="hidden px-4 py-3 align-top sm:table-cell">

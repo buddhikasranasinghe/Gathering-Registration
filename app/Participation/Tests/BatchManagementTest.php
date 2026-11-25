@@ -74,9 +74,11 @@ final class BatchManagementTest extends TestCase
     #[Test]
     public function when_a_non_super_admin_manages_batches_then_the_request_is_forbidden(UserRole $role): void
     {
-        $user = $role === UserRole::Admin
-            ? User::factory()->admin()->create()
-            : User::factory()->create();
+        $user = match ($role) {
+            UserRole::Admin => User::factory()->admin()->create(),
+            UserRole::MainTreasurer => User::factory()->mainTreasurer()->create(),
+            default => User::factory()->create(),
+        };
 
         $response = $this->actingAs($user)->get(route('batches.index'));
 
@@ -109,6 +111,7 @@ final class BatchManagementTest extends TestCase
     {
         return [
             'admin' => [UserRole::Admin],
+            'main_treasurer' => [UserRole::MainTreasurer],
             'user' => [UserRole::User],
         ];
     }

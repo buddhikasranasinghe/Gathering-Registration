@@ -27,6 +27,7 @@ class UpdateUserRoleRequest extends FormRequest
                 Rule::in([
                     UserRole::User->value,
                     UserRole::Admin->value,
+                    UserRole::MainTreasurer->value,
                     UserRole::SuperAdmin->value,
                 ]),
             ],
