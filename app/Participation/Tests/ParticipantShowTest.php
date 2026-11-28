@@ -308,4 +308,27 @@ final class ParticipantShowTest extends TestCase
         $response->assertDontSee('Self-registered');
         $response->assertSee('Attendance');
     }
+
+    #[Test]
+    public function when_a_relation_has_paid_then_the_payment_summary_includes_it(): void
+    {
+        config()->set('tickets.price_per_person', 2000);
+
+        $primary = Participant::factory()->create();
+        $spouse = Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create();
+        Payment::factory()->for($primary)->create(['amount' => 2000]);
+        Payment::factory()->for($spouse)->create(['amount' => 2000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.show', $primary));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'summary',
+            fn (array $summary): bool => $summary['ticketPrice'] === 4000.0
+                && $summary['totalPaid'] === 4000.0
+                && $summary['remaining'] === 0.0,
+        );
+        $response->assertViewHas('progressStatus', ParticipantProgressStatus::PaymentComplete);
+    }
 }

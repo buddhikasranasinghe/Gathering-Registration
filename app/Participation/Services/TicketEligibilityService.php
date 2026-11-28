@@ -6,7 +6,9 @@ namespace App\Participation\Services;
 
 use App\Participation\Entities\Participant;
 use App\Participation\Entities\ParticipantProgressStatus;
+use App\Participation\Entities\Payment;
 use App\Participation\Entities\TicketStatus;
+use Illuminate\Support\Collection;
 
 final class TicketEligibilityService
 {
@@ -30,7 +32,7 @@ final class TicketEligibilityService
         $payments = $participant->relationLoaded('payments')
             ? $participant->payments
             : $participant->payments()->get();
-        $totalPaid = (float) $payments->sum('amount');
+        $totalPaid = $this->totalPaid($participant, $payments);
         $remaining = max(0.0, $breakdown['total'] - $totalPaid);
         $refund = max(0.0, $totalPaid - $breakdown['total']);
         $attendees = $this->attendees($participant);
@@ -73,6 +75,32 @@ final class TicketEligibilityService
     }
 
     /**
+     * @param  Collection<int, Payment>  $payments
+     */
+    private function totalPaid(Participant $participant, Collection $payments): float
+    {
+        $total = (float) $payments->sum('amount');
+
+        $relations = $participant->relationLoaded('relatedParticipants')
+            ? $participant->relatedParticipants
+            : $participant->relatedParticipants()->get();
+
+        foreach ($relations as $relation) {
+            if ($relation->archived_at !== null) {
+                continue;
+            }
+
+            $relationPayments = $relation->relationLoaded('payments')
+                ? $relation->payments
+                : $relation->payments()->get();
+
+            $total += (float) $relationPayments->sum('amount');
+        }
+
+        return $total;
+    }
+
+    /**
      * @return array<int, array{name: string, relation: ?string}>
      */
     private function attendees(Participant $participant): array
@@ -88,7 +116,7 @@ final class TicketEligibilityService
             : $participant->relatedParticipants()->get();
 
         foreach ($relations as $relation) {
-            if (! $relation->attending) {
+            if ($relation->archived_at !== null || ! $relation->attending) {
                 continue;
             }
 

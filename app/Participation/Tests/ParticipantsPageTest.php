@@ -348,6 +348,128 @@ final class ParticipantsPageTest extends TestCase
         $this->assertStringNotContainsString('attending = 1', $queries);
     }
 
+    #[Test]
+    public function when_a_relation_exists_then_only_the_primary_participant_is_listed_in_the_roster(): void
+    {
+        $primary = Participant::factory()->create(['name' => 'Primary Person']);
+        Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create(['name' => 'Spouse Person']);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index'));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->getCollection()->pluck('name')->all() === ['Primary Person'],
+        );
+        $response->assertSee('Spouse Person (spouse)', false);
+    }
+
+    #[Test]
+    public function when_the_household_has_paid_for_the_participant_and_relation_then_payment_complete_returns_the_primary(): void
+    {
+        config()->set('tickets.price_per_person', 2000);
+
+        $primary = Participant::factory()->create(['name' => 'Couple Primary']);
+        Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create(['name' => 'Couple Spouse']);
+        Payment::factory()->for($primary)->create(['amount' => 4000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['status' => 'payment_complete']));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->first()->is($primary),
+        );
+    }
+
+    #[Test]
+    public function when_the_household_has_partially_paid_then_payment_incomplete_returns_the_primary(): void
+    {
+        config()->set('tickets.price_per_person', 2000);
+
+        $primary = Participant::factory()->create();
+        Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create();
+        Payment::factory()->for($primary)->create(['amount' => 3000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['status' => 'payment_incomplete']));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->first()->is($primary),
+        );
+    }
+
+    #[Test]
+    public function when_a_relation_has_paid_then_the_household_is_payment_complete(): void
+    {
+        config()->set('tickets.price_per_person', 2000);
+
+        $primary = Participant::factory()->create();
+        $spouse = Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create();
+        Payment::factory()->for($primary)->create(['amount' => 2000]);
+        Payment::factory()->for($spouse)->create(['amount' => 2000]);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['status' => 'payment_complete']));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->first()->is($primary),
+        );
+    }
+
+    #[Test]
+    public function when_the_search_matches_a_relation_then_the_primary_is_listed(): void
+    {
+        $primary = Participant::factory()->create(['name' => 'Primary Person']);
+        Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create(['name' => 'Ruwani Perera']);
+
+        $response = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['search' => 'Ruwani']));
+
+        $response->assertOk();
+        $response->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->first()->is($primary),
+        );
+    }
+
+    #[Test]
+    public function when_a_relation_is_attending_then_the_household_matches_the_attending_filter_only(): void
+    {
+        $primary = Participant::factory()->create(['attending' => false]);
+        Participant::factory()->relationTo($primary, ParticipantRelation::Spouse)->create(['attending' => true]);
+
+        $attending = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['attendance' => 'attending']));
+
+        $attending->assertOk();
+        $attending->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 1
+                && $participants->first()->is($primary),
+        );
+
+        $notAttending = $this->actingAs(User::factory()->superAdmin()->create())
+            ->get(route('participants.index', ['attendance' => 'not_attending']));
+
+        $notAttending->assertOk();
+        $notAttending->assertViewHas(
+            'participants',
+            fn ($participants): bool => $participants->total() === 0,
+        );
+    }
+
     /**
      * @param  list<string>  $expectedNames
      */

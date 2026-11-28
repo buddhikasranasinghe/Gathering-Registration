@@ -27,7 +27,7 @@ final class TicketPriceCalculator
             : $participant->relatedParticipants()->get();
 
         foreach ($relatedParticipants as $relation) {
-            if (! $relation->attending) {
+            if ($relation->archived_at !== null || ! $relation->attending) {
                 continue;
             }
 

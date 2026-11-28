@@ -29,6 +29,7 @@ class ShowParticipantController extends Controller
         $participant->load([
             'batch:id,name',
             'relatedParticipants' => fn ($query) => $query->orderBy('name')->orderBy('id'),
+            'relatedParticipants.payments' => fn ($query) => $query->select('id', 'participant_id', 'amount'),
             'attendanceChanges' => fn ($query) => $query->with('changedBy:id,name')->latest(),
             'payments' => fn ($query) => $query
                 ->with(['recordedBy:id,name', 'updatedBy:id,name'])

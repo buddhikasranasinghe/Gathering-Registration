@@ -93,18 +93,32 @@ class ParticipantController extends Controller
         $query = $this->participantsFor($user)
             ->with([
                 'batch:id,name',
-                'relatedParticipants:id,primary_participant_id,name,relation,attending',
+                'relatedParticipants:id,primary_participant_id,name,relation,attending,archived_at',
+                'relatedParticipants.payments:id,participant_id,amount',
                 'payments:id,participant_id,amount',
                 'issuedTickets:id,participant_id,status',
             ])
-            ->whereNull('archived_at');
+            ->whereNull('archived_at')
+            ->whereNull('primary_participant_id');
 
         if (! $user->isBatchScoped() && $filters['batchId'] !== null) {
             $query->where('batch_id', $filters['batchId']);
         }
 
         if ($filters['attendance'] !== null) {
-            $query->where('attending', $filters['attendance']);
+            if ($filters['attendance']) {
+                $query->where(function (Builder $query): void {
+                    $query->where('attending', true)
+                        ->orWhereHas('relatedParticipants', fn (Builder $relation): Builder => $relation
+                            ->where('attending', true)
+                            ->whereNull('archived_at'));
+                });
+            } else {
+                $query->where('attending', false)
+                    ->whereDoesntHave('relatedParticipants', fn (Builder $relation): Builder => $relation
+                        ->where('attending', true)
+                        ->whereNull('archived_at'));
+            }
         }
 
         $this->applyStatusFilter($query, $filters['status']);
@@ -117,7 +131,10 @@ class ParticipantController extends Controller
                     ->orWhereLike('call_name', $search)
                     ->orWhereLike('phone', $search)
                     ->orWhereLike('nic', $search)
-                    ->orWhereLike('email', $search);
+                    ->orWhereLike('email', $search)
+                    ->orWhereHas('relatedParticipants', fn (Builder $relation): Builder => $relation
+                        ->whereLike('name', $search)
+                        ->whereNull('archived_at'));
             });
         }
 
@@ -138,14 +155,14 @@ class ParticipantController extends Controller
         $childPrice = number_format((float) config('tickets.price_per_child'), 2, '.', '');
 
         $activeTicket = "EXISTS (SELECT 1 FROM issued_tickets WHERE issued_tickets.participant_id = participants.id AND issued_tickets.status = 'active')";
-        $totalPaid = 'COALESCE((SELECT SUM(payments.amount) FROM payments WHERE payments.participant_id = participants.id), 0)';
-        $requiredAmount = "(CASE WHEN participants.attending = TRUE THEN {$adultPrice} ELSE 0 END) + COALESCE((SELECT SUM(CASE WHEN relations.relation = 'child' THEN {$childPrice} ELSE {$adultPrice} END) FROM participants AS relations WHERE relations.primary_participant_id = participants.id AND relations.attending = TRUE), 0)";
+        $householdPaid = 'COALESCE((SELECT SUM(payments.amount) FROM payments WHERE payments.participant_id = participants.id OR payments.participant_id IN (SELECT relations.id FROM participants AS relations WHERE relations.primary_participant_id = participants.id AND relations.archived_at IS NULL)), 0)';
+        $requiredAmount = "(CASE WHEN participants.attending = TRUE THEN {$adultPrice} ELSE 0 END) + COALESCE((SELECT SUM(CASE WHEN relations.relation = 'child' THEN {$childPrice} ELSE {$adultPrice} END) FROM participants AS relations WHERE relations.primary_participant_id = participants.id AND relations.attending = TRUE AND relations.archived_at IS NULL), 0)";
 
         $condition = match ($status) {
             ParticipantProgressStatus::TicketIssued => $activeTicket,
-            ParticipantProgressStatus::NotPaid => "NOT {$activeTicket} AND {$totalPaid} <= 0",
-            ParticipantProgressStatus::PaymentIncomplete => "NOT {$activeTicket} AND {$totalPaid} > 0 AND {$totalPaid} < {$requiredAmount}",
-            ParticipantProgressStatus::PaymentComplete => "NOT {$activeTicket} AND {$totalPaid} >= {$requiredAmount} AND ({$requiredAmount} > 0 OR {$totalPaid} > 0)",
+            ParticipantProgressStatus::NotPaid => "NOT {$activeTicket} AND {$householdPaid} <= 0",
+            ParticipantProgressStatus::PaymentIncomplete => "NOT {$activeTicket} AND {$householdPaid} > 0 AND {$householdPaid} < {$requiredAmount}",
+            ParticipantProgressStatus::PaymentComplete => "NOT {$activeTicket} AND {$householdPaid} >= {$requiredAmount} AND ({$requiredAmount} > 0 OR {$householdPaid} > 0)",
         };
 
         $query->whereRaw($condition);
